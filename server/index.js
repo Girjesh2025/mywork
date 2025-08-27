@@ -41,9 +41,9 @@ const defaultData = {
   ]
 };
 const db = new Low(adapter, defaultData);
+const app = express();
 
-// Initialize the database within an async IIFE to handle top-level await
-(async () => {
+const initializeServer = async () => {
   try {
     await db.read();
     if (db.data === null) {
@@ -53,16 +53,15 @@ const db = new Low(adapter, defaultData);
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Failed to initialize database:', err);
+    // If the database fails, we should not start the server.
+    // Vercel will show a 500 error, which is appropriate.
+    throw new Error('Database initialization failed');
   }
-})();
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+  app.use(cors());
+  app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
-
-// --- Helper Functions for Image Fetching ---
+  // --- Helper Functions for Image Fetching ---
 
 const fetchHtml = async (url) => {
   try {
@@ -327,13 +326,18 @@ app.get('/api/screenshot', async (req, res) => {
   res.send(svgContent);
 });
 
-// Start the server for local development
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
-  });
-}
+  // Start the server for local development
+  if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    });
+  }
+};
 
-// Export the app for Vercel
-module.exports = app;
+// We need to export a promise that resolves to the app for Vercel
+// to handle the async initialization correctly.
+module.exports = (async () => {
+  await initializeServer();
+  return app;
+})();
