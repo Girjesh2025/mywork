@@ -42,14 +42,19 @@ const defaultData = {
 };
 const db = new Low(adapter, defaultData);
 
-// Read data from the writable db.json.
-await db.read();
-
-// If the database is empty, initialize it with default data.
-if (db.data === null) {
-  db.data = defaultData;
-  await db.write();
-}
+// Initialize the database within an async IIFE to handle top-level await
+(async () => {
+  try {
+    await db.read();
+    if (db.data === null) {
+      db.data = defaultData;
+      await db.write();
+    }
+    console.log('Database initialized successfully.');
+  } catch (err) {
+    console.error('Failed to initialize database:', err);
+  }
+})();
 
 const app = express();
 app.use(cors());
