@@ -10,15 +10,23 @@ const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-const __dirname = __dirname;
 const screenshotsDir = join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotsDir)) {
   fs.mkdirSync(screenshotsDir);
 }
 
-// Configure lowdb
-const file = join(__dirname, 'db.json');
-const adapter = new JSONFile(file);
+// --- Database Setup for Vercel ---
+// Vercel has a read-only filesystem, except for the /tmp directory.
+// We copy the database file to /tmp to make it writable.
+const sourceDbPath = join(__dirname, 'db.json');
+const writableDbPath = join('/tmp', 'db.json');
+
+// Copy db.json to /tmp if it doesn't exist there yet
+if (!fs.existsSync(writableDbPath)) {
+  fs.copyFileSync(sourceDbPath, writableDbPath);
+}
+
+const adapter = new JSONFile(writableDbPath);
 const defaultData = { 
   projects: [
     { id: 1, name: "Youtube", site: "https://www.youtube.com", status: "Active", progress: 70, tags: ["Landing", "Marketing"], updatedAt: "2025-08-10" },
@@ -34,14 +42,13 @@ const defaultData = {
 };
 const db = new Low(adapter, defaultData);
 
-// Read data from db.json. If db.json doesn't exist, db.data will be null.
+// Read data from the writable db.json.
 await db.read();
 
-// If db.json was empty, initialize it with default data
-// and write it to disk
+// If the database is empty, initialize it with default data.
 if (db.data === null) {
-  db.data = defaultData
-  await db.write()
+  db.data = defaultData;
+  await db.write();
 }
 
 const app = express();
