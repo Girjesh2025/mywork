@@ -22,7 +22,7 @@ export default function ProjectsPage({ projects, setProjects, query }) {
   async function saveEdit() {
     const projectToUpdate = { ...editData, site: normalizeSite(editData.site), progress: clampNum(editData.progress, 0, 100), updatedAt: today() };
     try {
-      const response = await fetch(`http://localhost:3001/api/projects/${editingId}`, {
+      const response = await fetch(`/api/projects/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectToUpdate),
@@ -38,7 +38,7 @@ export default function ProjectsPage({ projects, setProjects, query }) {
 
   async function deleteProject(projectId) {
     try {
-      const response = await fetch(`http://localhost:3001/api/projects/${projectId}`, {
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete project');

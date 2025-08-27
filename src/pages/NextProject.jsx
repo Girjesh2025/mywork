@@ -9,7 +9,7 @@ export default function NextProjectPage() {
   const [tags, setTags] = useState("");
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/projects')
+    fetch('/api/projects')
       .then(res => res.json())
       .then(data => setProjects(data.sort((a, b) => b.id - a.id)))
       .catch(error => console.error("Failed to fetch projects:", error));
@@ -30,7 +30,7 @@ export default function NextProjectPage() {
     };
 
     try {
-      const response = await fetch('http://localhost:3001/api/projects', {
+      const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProject),
@@ -49,7 +49,7 @@ export default function NextProjectPage() {
 
   async function deleteProject(projectId) {
     try {
-      const response = await fetch(`http://localhost:3001/api/projects/${projectId}`, {
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Failed to delete project');

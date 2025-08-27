@@ -16,7 +16,7 @@ export default function App() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/projects')
+    fetch('/api/projects')
       .then(res => res.json())
       .then(data => setProjects(data))
       .catch(error => console.error("Failed to fetch projects:", error));
@@ -37,7 +37,7 @@ export default function App() {
     };
 
     try {
-      const response = await fetch('http://localhost:3001/api/projects', {
+      const response = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProject),
