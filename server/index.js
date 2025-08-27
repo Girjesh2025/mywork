@@ -15,18 +15,10 @@ if (!fs.existsSync(screenshotsDir)) {
   fs.mkdirSync(screenshotsDir);
 }
 
-// --- Database Setup for Vercel ---
-// Vercel has a read-only filesystem, except for the /tmp directory.
-// We copy the database file to /tmp to make it writable.
-const sourceDbPath = join(__dirname, 'db.json');
-const writableDbPath = join('/tmp', 'db.json');
-
-// Copy db.json to /tmp if it doesn't exist there yet
-if (!fs.existsSync(writableDbPath)) {
-  fs.copyFileSync(sourceDbPath, writableDbPath);
-}
-
-const adapter = new JSONFile(writableDbPath);
+// --- Simplified Database Setup for Vercel Diagnosis ---
+const dbPath = join(__dirname, 'db.json');
+console.log(`[Server Init] Database path resolved to: ${dbPath}`);
+const adapter = new JSONFile(dbPath);
 const defaultData = { 
   projects: [
     { id: 1, name: "Youtube", site: "https://www.youtube.com", status: "Active", progress: 70, tags: ["Landing", "Marketing"], updatedAt: "2025-08-10" },
@@ -42,41 +34,11 @@ const defaultData = {
 };
 const db = new Low(adapter, defaultData);
 const app = express();
-let dbInitialized = false;
-
-const initializeDb = async () => {
-  if (dbInitialized) return;
-  try {
-    await db.read();
-    if (db.data === null) {
-      db.data = defaultData;
-      await db.write();
-    }
-    dbInitialized = true;
-    console.log('Database initialized successfully.');
-  } catch (err) {
-    console.error('Failed to initialize database:', err);
-    throw new Error('Database initialization failed');
-  }
-};
 
 app.use(cors());
 app.use(express.json());
 
-// --- API Router with DB Initialization Middleware ---
 const apiRouter = express.Router();
-
-apiRouter.use(async (req, res, next) => {
-  console.log('API request received. Initializing database...');
-  try {
-    await initializeDb();
-    console.log('Database is ready. Proceeding to route.');
-    next();
-  } catch (error) {
-    console.error('CRITICAL: Database initialization failed in middleware.', error);
-    res.status(500).json({ error: 'Server failed to initialize database.' });
-  }
-});
 
 // --- Helper Functions for Image Fetching ---
 
@@ -120,61 +82,62 @@ const normalizeUrl = (url) => {
 
 // GET /api/projects - Get all projects
 apiRouter.get('/projects', async (req, res) => {
-  console.log('Handling GET /api/projects');
-  await db.read(); // Ensure data is fresh
-  res.json(db.data.projects);
-});
+  console.log('--- Handling GET /api/projects ---');
+  const dbPath = join(__dirname, 'db.json');
+  console.log(`[Projects Route] Resolved db.json path: ${dbPath}`);
 
-// Add a project
-apiRouter.post('/projects', async (req, res) => {
-  const newProject = req.body;
-  db.data.projects.push(newProject);
-  await db.write();
-  res.status(201).json(newProject);
-});
+  try {
+    console.log('[Projects Route] Checking if db.json exists...');
+    if (fs.existsSync(dbPath)) {
+      console.log('[Projects Route] db.json exists.');
+    } else {
+      console.error('[Projects Route] CRITICAL: db.json does NOT exist at path.');
+      return res.status(500).json({ error: 'Database file not found on server.' });
+    }
 
-// Update a project
-apiRouter.put('/projects/:id', async (req, res) => {
-  const projectId = Number(req.params.id);
-  const updatedData = req.body;
-  db.data.projects = db.data.projects.map(p => p.id === projectId ? { ...p, ...updatedData } : p);
-  await db.write();
-  res.json(db.data.projects.find(p => p.id === projectId));
-});
+    console.log('[Projects Route] Attempting to read db.json...');
+    await db.read();
+    console.log('[Projects Route] db.read() completed.');
 
-// Delete a project
-apiRouter.delete('/projects/:id', async (req, res) => {
-  const projectId = Number(req.params.id);
-  db.data.projects = db.data.projects.filter(p => p.id !== projectId);
-  await db.write();
-  res.status(204).send();
-});
-
-// GET /api/tasks - Get all tasks
-apiRouter.get('/tasks', async (req, res) => {
-  await db.read();
-  res.json(db.data.tasks);
-});
-
-// POST /api/tasks - Add a new task
-apiRouter.post('/tasks', async (req, res) => {
-  const newTask = { ...req.body, id: db.data.tasks.length + 1 };
-  db.data.tasks.push(newTask);
-  await db.write();
-  res.status(201).json(newTask);
-});
-
-// PATCH /api/tasks/:id - Update a task
-apiRouter.patch('/tasks/:id', async (req, res) => {
-  const task = db.data.tasks.find(t => t.id === parseInt(req.params.id));
-  if (task) {
-    Object.assign(task, req.body);
-    await db.write();
-    res.json(task);
-  } else {
-    res.status(404).send('Task not found');
+    if (db.data && db.data.projects) {
+      console.log(`[Projects Route] Success! Found ${db.data.projects.length} projects.`);
+      res.json(db.data.projects);
+    } else {
+      console.error('[Projects Route] db.data is null or does not contain projects.');
+      res.status(500).json({ error: 'Failed to read project data from database file.' });
+    }
+  } catch (error) {
+    console.error('[Projects Route] An error occurred:', error);
+    res.status(500).json({ error: error.message });
   }
 });
+
+// Add a project (disabled for diagnostics)
+apiRouter.post('/projects', async (req, res) => {
+  res.status(503).send('Service temporarily unavailable for writing.');
+});
+
+// Update a project (disabled for diagnostics)
+apiRouter.put('/projects/:id', async (req, res) => {
+  res.status(503).send('Service temporarily unavailable for writing.');
+});
+// GET /api/tasks - Get all tasks
+apiRouter.get('/tasks', async (req, res) => {
+  // Re-using the same read logic as projects for consistency
+  try {
+    await db.read();
+    if (db.data && db.data.tasks) {
+      res.json(db.data.tasks);
+    } else {
+      res.status(500).json({ error: 'Failed to read task data from database file.' });
+    }
+  } catch (error) {
+    console.error('[Tasks Route] An error occurred:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 
 // GET /api/screenshot - Get a screenshot of a website
 apiRouter.get('/screenshot', async (req, res) => {
@@ -228,8 +191,7 @@ apiRouter.get('/screenshot', async (req, res) => {
       const screenshot = await page.screenshot({ type: 'png', fullPage: true });
       console.log('[Puppeteer] Screenshot taken successfully.');
 
-      fs.writeFileSync(filePath, screenshot);
-      console.log(`[Cache] Screenshot cached: ${filePath}`);
+      console.log(`[Cache] Screenshot write skipped for diagnostics.`);
       
       res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
       return res.send(screenshot);
@@ -262,8 +224,7 @@ apiRouter.get('/screenshot', async (req, res) => {
           const contentType = imageResponse.headers['content-type'];
 
           if (contentType && contentType.startsWith('image/')) {
-            fs.writeFileSync(filePath, imageBuffer);
-            console.log(`Image cached from ${imageUrl}: ${filePath}`);
+            console.log(`[Cache] Image write skipped for diagnostics: ${imageUrl}`);
             res.set({ 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' });
             return res.send(imageBuffer);
           }
@@ -325,13 +286,8 @@ apiRouter.get('/screenshot', async (req, res) => {
     </svg>
   `;
   
-  // Save placeholder to cache
-  try {
-    fs.writeFileSync(filePath, svgContent);
-    console.log(`Status placeholder cached: ${filePath}`);
-  } catch (diskError) {
-    console.log(`Serving placeholder from memory: ${url}`);
-  }
+  // Placeholder is generated but not saved to disk for diagnostics
+console.log(`Serving placeholder from memory: ${url}`);
   
   res.set({
     'Content-Type': 'image/svg+xml',
