@@ -1,7 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const { Low } = require('lowdb');
-const { JSONFile } = require('lowdb/node');
 const { join } = require('path');
 const puppeteer = require('puppeteer-core');
 const chrome = require('chrome-aws-lambda');
@@ -15,24 +13,40 @@ if (!fs.existsSync(screenshotsDir)) {
   fs.mkdirSync(screenshotsDir);
 }
 
-// --- Simplified Database Setup for Vercel Diagnosis ---
-const dbPath = join(__dirname, 'db.json');
-console.log(`[Server Init] Database path resolved to: ${dbPath}`);
-const adapter = new JSONFile(dbPath);
-const defaultData = { 
-  projects: [
-    { id: 1, name: "Youtube", site: "https://www.youtube.com", status: "Active", progress: 70, tags: ["Landing", "Marketing"], updatedAt: "2025-08-10" },
-    { id: 2, name: "Google", site: "https://www.google.com", status: "Planned", progress: 35, tags: ["Shop", "UI"], updatedAt: "2025-07-02" },
-    { id: 3, name: "EasyPDFIndia", site: "https://www.easypdfindia.com/", status: "Live", progress: 10, tags: ["Portfolio", "Design"], updatedAt: "2026-07-23" },
-    { id: 4, name: "SmartCalculator", site: "https://www.online-calculator.com/", status: "On Hold", progress: 50, tags: ["E‑commerce", "Design"], updatedAt: "2025-06-20" },
-  ],
-  tasks: [
-    { id: 1, text: "Set up auth", due: "2025-08-22", done: false },
-    { id: 2, text: "Write documentation", due: "2025-08-20", done: true },
-    { id: 3, text: "Add email notifications", due: "2025-08-18", done: true },
-  ]
+// --- Database Initialization using Dynamic Import for ESM ---
+let db;
+
+const initializeDb = async () => {
+  if (db) return db;
+
+  const { Low } = await import('lowdb');
+  const { JSONFile } = await import('lowdb/node');
+
+  const dbPath = join(__dirname, 'db.json');
+  console.log(`[DB Init] Database path resolved to: ${dbPath}`);
+  
+  const adapter = new JSONFile(dbPath);
+  const defaultData = {
+    projects: [
+      { id: 1, name: "Youtube", site: "https://www.youtube.com", status: "Active", progress: 70, tags: ["Landing", "Marketing"], updatedAt: "2025-08-10" },
+      { id: 2, name: "Google", site: "https://www.google.com", status: "Planned", progress: 35, tags: ["Shop", "UI"], updatedAt: "2025-07-02" },
+      { id: 3, name: "EasyPDFIndia", site: "https://www.easypdfindia.com/", status: "Live", progress: 10, tags: ["Portfolio", "Design"], updatedAt: "2026-07-23" },
+      { id: 4, name: "SmartCalculator", site: "https://www.online-calculator.com/", status: "On Hold", progress: 50, tags: ["E‑commerce", "Design"], updatedAt: "2025-06-20" },
+    ],
+    tasks: [
+      { id: 1, text: "Set up auth", due: "2025-08-22", done: false },
+      { id: 2, text: "Write documentation", due: "2025-08-20", done: true },
+      { id: 3, text: "Add email notifications", due: "2025-08-18", done: true },
+    ]
+  };
+
+  const newDb = new Low(adapter, defaultData);
+  console.log('[DB Init] Reading database...');
+  await newDb.read();
+  console.log('[DB Init] Database read complete.');
+  db = newDb;
+  return db;
 };
-const db = new Low(adapter, defaultData);
 const app = express();
 
 app.use(cors());
@@ -83,32 +97,18 @@ const normalizeUrl = (url) => {
 // GET /api/projects - Get all projects
 apiRouter.get('/projects', async (req, res) => {
   console.log('--- Handling GET /api/projects ---');
-  const dbPath = join(__dirname, 'db.json');
-  console.log(`[Projects Route] Resolved db.json path: ${dbPath}`);
-
   try {
-    console.log('[Projects Route] Checking if db.json exists...');
-    if (fs.existsSync(dbPath)) {
-      console.log('[Projects Route] db.json exists.');
-    } else {
-      console.error('[Projects Route] CRITICAL: db.json does NOT exist at path.');
-      return res.status(500).json({ error: 'Database file not found on server.' });
-    }
-
-    console.log('[Projects Route] Attempting to read db.json...');
-    await db.read();
-    console.log('[Projects Route] db.read() completed.');
-
+    const db = await initializeDb();
     if (db.data && db.data.projects) {
       console.log(`[Projects Route] Success! Found ${db.data.projects.length} projects.`);
       res.json(db.data.projects);
     } else {
       console.error('[Projects Route] db.data is null or does not contain projects.');
-      res.status(500).json({ error: 'Failed to read project data from database file.' });
+      res.status(500).json({ error: 'Failed to read project data.' });
     }
   } catch (error) {
-    console.error('[Projects Route] An error occurred:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[Projects Route] An error occurred during DB initialization or read:', error);
+    res.status(500).send(`A server error occurred: ${error.message}`);
   }
 });
 
@@ -123,17 +123,19 @@ apiRouter.put('/projects/:id', async (req, res) => {
 });
 // GET /api/tasks - Get all tasks
 apiRouter.get('/tasks', async (req, res) => {
-  // Re-using the same read logic as projects for consistency
+  console.log('--- Handling GET /api/tasks ---');
   try {
-    await db.read();
+    const db = await initializeDb();
     if (db.data && db.data.tasks) {
+      console.log(`[Tasks Route] Success! Found ${db.data.tasks.length} tasks.`);
       res.json(db.data.tasks);
     } else {
-      res.status(500).json({ error: 'Failed to read task data from database file.' });
+      console.error('[Tasks Route] db.data is null or does not contain tasks.');
+      res.status(500).json({ error: 'Failed to read task data.' });
     }
   } catch (error) {
-    console.error('[Tasks Route] An error occurred:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[Tasks Route] An error occurred during DB initialization or read:', error);
+    res.status(500).send(`A server error occurred: ${error.message}`);
   }
 });
 
