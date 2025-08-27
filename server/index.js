@@ -63,17 +63,22 @@ const initializeDb = async () => {
 app.use(cors());
 app.use(express.json());
 
-// All API routes will first ensure the DB is initialized
-app.use(async (req, res, next) => {
+// --- API Router with DB Initialization Middleware ---
+const apiRouter = express.Router();
+
+apiRouter.use(async (req, res, next) => {
+  console.log('API request received. Initializing database...');
   try {
     await initializeDb();
+    console.log('Database is ready. Proceeding to route.');
     next();
   } catch (error) {
-    res.status(500).send(error.message);
+    console.error('CRITICAL: Database initialization failed in middleware.', error);
+    res.status(500).json({ error: 'Server failed to initialize database.' });
   }
 });
 
-  // --- Helper Functions for Image Fetching ---
+// --- Helper Functions for Image Fetching ---
 
 const fetchHtml = async (url) => {
   try {
@@ -113,13 +118,15 @@ const normalizeUrl = (url) => {
 
 // --- API Endpoints ---
 
-// Get all projects
-app.get('/api/projects', (req, res) => {
+// GET /api/projects - Get all projects
+apiRouter.get('/projects', async (req, res) => {
+  console.log('Handling GET /api/projects');
+  await db.read(); // Ensure data is fresh
   res.json(db.data.projects);
 });
 
 // Add a project
-app.post('/api/projects', async (req, res) => {
+apiRouter.post('/projects', async (req, res) => {
   const newProject = req.body;
   db.data.projects.push(newProject);
   await db.write();
@@ -127,7 +134,7 @@ app.post('/api/projects', async (req, res) => {
 });
 
 // Update a project
-app.put('/api/projects/:id', async (req, res) => {
+apiRouter.put('/projects/:id', async (req, res) => {
   const projectId = Number(req.params.id);
   const updatedData = req.body;
   db.data.projects = db.data.projects.map(p => p.id === projectId ? { ...p, ...updatedData } : p);
@@ -136,45 +143,41 @@ app.put('/api/projects/:id', async (req, res) => {
 });
 
 // Delete a project
-app.delete('/api/projects/:id', async (req, res) => {
+apiRouter.delete('/projects/:id', async (req, res) => {
   const projectId = Number(req.params.id);
   db.data.projects = db.data.projects.filter(p => p.id !== projectId);
   await db.write();
   res.status(204).send();
 });
 
-// Get all tasks
-app.get('/api/tasks', (req, res) => {
+// GET /api/tasks - Get all tasks
+apiRouter.get('/tasks', async (req, res) => {
+  await db.read();
   res.json(db.data.tasks);
 });
 
-// Add a task
-app.post('/api/tasks', async (req, res) => {
-  const newTask = req.body;
+// POST /api/tasks - Add a new task
+apiRouter.post('/tasks', async (req, res) => {
+  const newTask = { ...req.body, id: db.data.tasks.length + 1 };
   db.data.tasks.push(newTask);
   await db.write();
   res.status(201).json(newTask);
 });
 
-// Update a task
-app.put('/api/tasks/:id', async (req, res) => {
-  const taskId = Number(req.params.id);
-  const updatedData = req.body;
-  db.data.tasks = db.data.tasks.map(t => t.id === taskId ? { ...t, ...updatedData } : t);
-  await db.write();
-  res.json(db.data.tasks.find(t => t.id === taskId));
+// PATCH /api/tasks/:id - Update a task
+apiRouter.patch('/tasks/:id', async (req, res) => {
+  const task = db.data.tasks.find(t => t.id === parseInt(req.params.id));
+  if (task) {
+    Object.assign(task, req.body);
+    await db.write();
+    res.json(task);
+  } else {
+    res.status(404).send('Task not found');
+  }
 });
 
-// Delete a task
-app.delete('/api/tasks/:id', async (req, res) => {
-  const taskId = Number(req.params.id);
-  db.data.tasks = db.data.tasks.filter(t => t.id !== taskId);
-  await db.write();
-  res.status(204).send();
-});
-
-// Screenshot a URL with Puppeteer or fallback
-app.get('/api/screenshot', async (req, res) => {
+// GET /api/screenshot - Get a screenshot of a website
+apiRouter.get('/screenshot', async (req, res) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   const { url: rawUrl, width = 480, height = 270, refresh = false, status = 'Live' } = req.query;
     const url = normalizeUrl(rawUrl);
@@ -338,14 +341,16 @@ app.get('/api/screenshot', async (req, res) => {
   res.send(svgContent);
 });
 
-  // Start the server for local development
-  if (process.env.NODE_ENV !== 'production') {
-    const PORT = process.env.PORT || 3001;
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  }
-};
+// Use the router for all /api routes
+app.use('/api', apiRouter);
+
+// Start the server for local development
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
 
 // Export the app for Vercel
 module.exports = app;
