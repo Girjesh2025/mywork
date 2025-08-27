@@ -42,24 +42,36 @@ const defaultData = {
 };
 const db = new Low(adapter, defaultData);
 const app = express();
+let dbInitialized = false;
 
-const initializeServer = async () => {
+const initializeDb = async () => {
+  if (dbInitialized) return;
   try {
     await db.read();
     if (db.data === null) {
       db.data = defaultData;
       await db.write();
     }
+    dbInitialized = true;
     console.log('Database initialized successfully.');
   } catch (err) {
     console.error('Failed to initialize database:', err);
-    // If the database fails, we should not start the server.
-    // Vercel will show a 500 error, which is appropriate.
     throw new Error('Database initialization failed');
   }
+};
 
-  app.use(cors());
-  app.use(express.json());
+app.use(cors());
+app.use(express.json());
+
+// All API routes will first ensure the DB is initialized
+app.use(async (req, res, next) => {
+  try {
+    await initializeDb();
+    next();
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 
   // --- Helper Functions for Image Fetching ---
 
@@ -335,9 +347,5 @@ app.get('/api/screenshot', async (req, res) => {
   }
 };
 
-// We need to export a promise that resolves to the app for Vercel
-// to handle the async initialization correctly.
-module.exports = (async () => {
-  await initializeServer();
-  return app;
-})();
+// Export the app for Vercel
+module.exports = app;
