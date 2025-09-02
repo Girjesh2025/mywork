@@ -3,37 +3,59 @@
     {
       "id": 3,
       "name": "EasyPDFIndia",
-      "site": "https://www.easypdfindia.com/",
+      "site": "www.easypdfindia.com/",
       "status": "Live",
       "progress": 100,
       "tags": [
         "Portfolio",
         "Design"
       ],
-      "updatedAt": "2025-08-26"
+      "updatedAt": "2025-09-02"
     },
     {
       "id": 4,
       "name": "SmartCalculator ",
-      "site": "www.yourcalculator.in/",
+      "site": "yourcalculator.in/",
       "status": "Live",
       "progress": 100,
       "tags": [
         "E‑commerce",
         "Design"
       ],
-      "updatedAt": "2025-08-26"
+      "updatedAt": "2025-09-02"
     },
     {
-      "id": 5,
-      "name": "dream",
-      "site": "www.wikipedia.org/",
-      "status": "Active",
-      "progress": 50,
+      "id": 7,
+      "name": "kids mathes ",
+      "site": "kidsmathe.netlify.app/",
+      "status": "Live",
+      "progress": 0,
       "tags": [
-        "sdf"
+        "New"
       ],
-      "updatedAt": "2025-08-27"
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 8,
+      "name": "oneclickpdf",
+      "site": "www.oneclickpdf.info/",
+      "status": "Planned",
+      "progress": 0,
+      "tags": [
+        "New"
+      ],
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 9,
+      "name": "lovelyinvoice",
+      "site": "receipt-revelry.vercel.app/",
+      "status": "Planned",
+      "progress": 0,
+      "tags": [
+        "New"
+      ],
+      "updatedAt": "2025-09-02"
     }
   ],
   "tasks": [

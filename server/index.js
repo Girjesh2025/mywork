@@ -1,17 +1,290 @@
 const express = require('express');
 const cors = require('cors');
 const { join } = require('path');
-const puppeteer = require('puppeteer-core');
-const chrome = require('chrome-aws-lambda');
+// Check if we're in development mode
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
+// Import appropriate puppeteer version based on environment
+let puppeteer;
+let chrome;
+
+if (isDevelopment) {
+  puppeteer = require('puppeteer');
+} else {
+  puppeteer = require('puppeteer-core');
+  chrome = require('chrome-aws-lambda');
+}
+
+// Function to get browser configuration
+const getBrowserConfig = async () => {
+  if (isDevelopment) {
+    // For local development, use bundled Chromium from puppeteer
+    console.log('Using bundled Chromium for local development');
+    return {
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    };
+  } else {
+    // Production: use chrome-aws-lambda
+    return {
+      args: chrome.args,
+      executablePath: await chrome.executablePath,
+      headless: chrome.headless
+    };
+  }
+};
 const fs = require('fs');
 const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const sharp = require('sharp');
+
+// Background processing queue
+class ScreenshotQueue {
+  constructor() {
+    this.queue = [];
+    this.processing = false;
+    this.maxConcurrent = 2;
+    this.activeJobs = new Map();
+  }
+
+  add(jobData) {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+
+    const job = {
+      ...jobData,
+      id: jobData.key, // Use cache key as job ID
+      promise,
+      resolve,
+      reject,
+      onProgress: (status, progress, message) => {
+        // Optional: Implement progress tracking if needed later
+        // console.log(`[Progress] ${jobData.key}: ${status} (${progress}%) - ${message}`);
+      },
+    };
+
+    this.queue.push(job);
+    console.log(`[Queue] Added job ${job.id}. Queue size: ${this.queue.length}`);
+    this.process();
+    return job;
+  }
+
+  async process() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+    const job = this.queue.shift();
+    console.log(`[Queue] Processing job ${job.id}`);
+
+    try {
+      const result = await this.executeJob(job);
+      job.resolve(result);
+      console.log(`[Queue] Job ${job.id} completed successfully.`);
+    } catch (error) {
+      console.error(`[Queue] Job ${job.id} failed:`, error.message);
+      job.reject(error);
+    } finally {
+      this.processing = false;
+      if (this.queue.length > 0) {
+        this.process();
+      }
+    }
+  }
+
+  async executeJob(job) {
+    const { url, width, height, key, format, status } = job;
+    console.log(`[SQ] Starting job for ${url}`);
+    let browser;
+    try {
+      console.log('[SQ] Launching browser...');
+      const browserConfig = await getBrowserConfig();
+      browser = await puppeteer.launch(browserConfig);
+      console.log('[SQ] Browser launched.');
+      const page = await browser.newPage();
+      console.log('[SQ] New page created.');
+      
+      console.log(`[SQ] Navigating to ${url}`);
+      await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
+      console.log('[SQ] Navigation complete.');
+      
+      console.log('[SQ] Taking screenshot.');
+      const screenshot = await page.screenshot({ type: 'png', fullPage: true });
+      console.log('[SQ] Screenshot taken.');
+      
+      console.log('[SQ] Processing image with Sharp.');
+      const resizedImage = await sharp(screenshot)
+        .resize(parseInt(width), parseInt(height), { fit: 'cover', position: 'top' })
+        .png({ quality: 90 })
+        .toBuffer();
+
+      const webpImage = await sharp(resizedImage)
+        .webp({ quality: 85, effort: 4 })
+        .toBuffer();
+      console.log('[SQ] Image processing complete.');
+      
+      // Save the image to cache
+      const webpPath = join(screenshotsDir, `${key}.webp`);
+      fs.writeFileSync(webpPath, webpImage);
+      cacheManager.set(key, webpPath, 'webp');
+      
+      return { success: true, filePath: webpPath, format: 'webp' };
+    } catch (error) {
+      console.error(`[SQ] Error in executeJob for ${url}:`, error);
+      return { success: false, error: error.message };
+    } finally {
+      if (browser) {
+        console.log('[SQ] Closing browser.');
+        await browser.close();
+        console.log('[SQ] Browser closed.');
+      }
+    }
+  }
+
+  getQueueStatus() {
+    return {
+      queueLength: this.queue.length,
+      activeJobs: this.activeJobs.size,
+      processing: this.processing
+    };
+  }
+}
+
+const screenshotQueue = new ScreenshotQueue();
+
+// Enhanced caching system
+class CacheManager {
+  constructor(cacheDir) {
+    this.cacheDir = cacheDir;
+    this.defaultTTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    this.metadata = new Map(); // In-memory metadata cache
+    this.loadMetadata();
+  }
+
+  loadMetadata() {
+    const metadataFile = join(this.cacheDir, '.cache-metadata.json');
+    if (fs.existsSync(metadataFile)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+        this.metadata = new Map(Object.entries(data));
+      } catch (error) {
+        console.error('[Cache] Failed to load metadata:', error);
+      }
+    }
+  }
+
+  saveMetadata() {
+    const metadataFile = join(this.cacheDir, '.cache-metadata.json');
+    try {
+      const data = Object.fromEntries(this.metadata);
+      fs.writeFileSync(metadataFile, JSON.stringify(data, null, 2));
+    } catch (error) {
+      console.error('[Cache] Failed to save metadata:', error);
+    }
+  }
+
+  isValid(filePath, customTTL = null) {
+    if (!fs.existsSync(filePath)) return false;
+    
+    const stats = fs.statSync(filePath);
+    const ttl = customTTL || this.defaultTTL;
+    const age = Date.now() - stats.mtime.getTime();
+    
+    return age < ttl;
+  }
+
+  get(key, customTTL = null) {
+    const metadata = this.metadata.get(key);
+    if (!metadata) return null;
+    
+    const { filePath, createdAt, format } = metadata;
+    
+    if (!this.isValid(filePath, customTTL)) {
+      this.invalidate(key);
+      return null;
+    }
+    
+    return { filePath, format, createdAt };
+  }
+
+  set(key, filePath, format = 'webp') {
+    this.metadata.set(key, {
+      filePath,
+      format,
+      createdAt: Date.now()
+    });
+    this.saveMetadata();
+  }
+
+  invalidate(key) {
+    const metadata = this.metadata.get(key);
+    if (metadata && fs.existsSync(metadata.filePath)) {
+      try {
+        fs.unlinkSync(metadata.filePath);
+      } catch (error) {
+        console.error('[Cache] Failed to delete file:', error);
+      }
+    }
+    this.metadata.delete(key);
+    this.saveMetadata();
+  }
+
+  cleanup() {
+    let cleaned = 0;
+    for (const [key, metadata] of this.metadata.entries()) {
+      if (!this.isValid(metadata.filePath)) {
+        this.invalidate(key);
+        cleaned++;
+      }
+    }
+    console.log(`[Cache] Cleaned up ${cleaned} expired entries`);
+    return cleaned;
+  }
+
+  getStats() {
+    const totalEntries = this.metadata.size;
+    let totalSize = 0;
+    let validEntries = 0;
+    
+    for (const [key, metadata] of this.metadata.entries()) {
+      if (fs.existsSync(metadata.filePath)) {
+        const stats = fs.statSync(metadata.filePath);
+        totalSize += stats.size;
+        if (this.isValid(metadata.filePath)) {
+          validEntries++;
+        }
+      }
+    }
+    
+    return {
+      totalEntries,
+      validEntries,
+      expiredEntries: totalEntries - validEntries,
+      totalSizeBytes: totalSize,
+      totalSizeMB: Math.round(totalSize / (1024 * 1024) * 100) / 100
+    };
+  }
+}
 
 const screenshotsDir = join(__dirname, 'screenshots');
 if (!fs.existsSync(screenshotsDir)) {
-  fs.mkdirSync(screenshotsDir);
+  fs.mkdirSync(screenshotsDir, { recursive: true });
 }
+
+const cacheManager = new CacheManager(screenshotsDir);
+
+// Cleanup expired cache entries every hour
+setInterval(() => {
+  cacheManager.cleanup();
+}, 60 * 60 * 1000);
 
 // --- Database Initialization using Dynamic Import for ESM ---
 let db;
@@ -112,15 +385,80 @@ apiRouter.get('/projects', async (req, res) => {
   }
 });
 
-// Add a project (disabled for diagnostics)
+// Add a project
 apiRouter.post('/projects', async (req, res) => {
-  res.status(503).send('Service temporarily unavailable for writing.');
+  console.log('--- Handling POST /api/projects ---');
+  try {
+    const db = await initializeDb();
+    const newProject = req.body;
+    
+    // Validate required fields
+    if (!newProject.name || !newProject.site) {
+      return res.status(400).json({ error: 'Name and site are required' });
+    }
+    
+    // Add the project to the database
+    db.data.projects.push(newProject);
+    await db.write();
+    
+    console.log(`[Add Project] Successfully added project: ${newProject.name}`);
+    res.status(201).json(newProject);
+  } catch (error) {
+    console.error('[Add Project] Error:', error);
+    res.status(500).json({ error: 'Failed to add project' });
+  }
 });
 
-// Update a project (disabled for diagnostics)
+// Update a project
 apiRouter.put('/projects/:id', async (req, res) => {
-  res.status(503).send('Service temporarily unavailable for writing.');
+  console.log(`--- Handling PUT /api/projects/${req.params.id} ---`);
+  try {
+    const db = await initializeDb();
+    const projectId = parseInt(req.params.id);
+    const updatedProject = req.body;
+    
+    // Find and update the project
+    const projectIndex = db.data.projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    // Update the project
+    db.data.projects[projectIndex] = { ...db.data.projects[projectIndex], ...updatedProject };
+    await db.write();
+    
+    console.log(`[Update Project] Successfully updated project: ${updatedProject.name}`);
+    res.json(db.data.projects[projectIndex]);
+  } catch (error) {
+    console.error('[Update Project] Error:', error);
+    res.status(500).json({ error: 'Failed to update project' });
+  }
 });
+
+// Delete a project
+apiRouter.delete('/projects/:id', async (req, res) => {
+  console.log(`--- Handling DELETE /api/projects/${req.params.id} ---`);
+  try {
+    const db = await initializeDb();
+    const projectId = parseInt(req.params.id);
+    
+    // Find and remove the project
+    const projectIndex = db.data.projects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+    
+    const deletedProject = db.data.projects.splice(projectIndex, 1)[0];
+    await db.write();
+    
+    console.log(`[Delete Project] Successfully deleted project: ${deletedProject.name}`);
+    res.json({ message: 'Project deleted successfully', project: deletedProject });
+  } catch (error) {
+    console.error('[Delete Project] Error:', error);
+    res.status(500).json({ error: 'Failed to delete project' });
+  }
+});
+
 // GET /api/tasks - Get all tasks
 apiRouter.get('/tasks', async (req, res) => {
   console.log('--- Handling GET /api/tasks ---');
@@ -141,162 +479,357 @@ apiRouter.get('/tasks', async (req, res) => {
 
 
 
-// GET /api/screenshot - Get a screenshot of a website
-apiRouter.get('/screenshot', async (req, res) => {
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  const { url: rawUrl, width = 480, height = 270, refresh = false, status = 'Live' } = req.query;
-    const url = normalizeUrl(rawUrl);
+// GET /api/screenshot/stream - Stream screenshot generation progress
+apiRouter.get('/screenshot/stream', async (req, res) => {
+  const { url: rawUrl, width = 480, height = 270, status = 'Live' } = req.query;
+  const url = normalizeUrl(rawUrl);
 
   if (!url) {
     return res.status(400).send('URL is required');
   }
 
-  const safeFilename = crypto.createHash('md5').update(url).digest('hex') + `-${width}x${height}.png`;
-  const filePath = join(screenshotsDir, safeFilename);
+  // Set up Server-Sent Events
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
+  });
 
-  // If not refreshing, try to serve from cache
-  if (!refresh && fs.existsSync(filePath)) {
-    const stats = fs.statSync(filePath);
-    const ageInHours = (new Date().getTime() - stats.mtime.getTime()) / (1000 * 60 * 60);
-    if (ageInHours < 24) {
-      return res.sendFile(filePath);
-    }
-  }
+  const sendProgress = (stage, progress, message) => {
+    res.write(`data: ${JSON.stringify({ stage, progress, message })}\n\n`);
+  };
 
-  // For Live projects, attempt fetching in order: Puppeteer, OG Image, Favicon
-  if (status === 'Live' && url.includes('.')) {
-    // 1. Try Puppeteer
-    let browser;
-    try {
-      console.log(`[Puppeteer] Launching browser for: ${url}`);
-      browser = await puppeteer.launch({
-        args: chrome.args,
-        executablePath: await chrome.executablePath,
-        headless: chrome.headless,
-      });
-
-      const page = await browser.newPage();
-      console.log('[Puppeteer] New page created.');
-
-      await page.setViewport({ width: 1920, height: 1080 });
-      console.log('[Puppeteer] Viewport set to 1920x1080.');
-
-      console.log(`[Puppeteer] Navigating to ${url}...`);
-      await page.goto(url, { waitUntil: 'load', timeout: 30000 });
-      console.log('[Puppeteer] Page navigation successful.');
-
-      console.log('[Puppeteer] Waiting for body to be rendered...');
-      await page.waitForSelector('body');
-      console.log('[Puppeteer] Body rendered.');
-
-      console.log('[Puppeteer] Taking full page screenshot...');
-      const screenshot = await page.screenshot({ type: 'png', fullPage: true });
-      console.log('[Puppeteer] Screenshot taken successfully.');
-
-      console.log(`[Cache] Screenshot write skipped for diagnostics.`);
-      
-      res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' });
-      return res.send(screenshot);
-
-    } catch (puppeteerError) {
-      console.error(`[Puppeteer] An error occurred for ${url}:`, puppeteerError);
-    } finally {
-      if (browser) {
-        console.log('[Puppeteer] Closing browser.');
-        await browser.close();
-        console.log('[Puppeteer] Browser closed.');
+  try {
+    sendProgress('initializing', 10, 'Starting screenshot capture...');
+    
+    const hash = crypto.createHash('md5').update(url).digest('hex');
+    const webpPath = join(screenshotsDir, `${hash}-${width}x${height}.webp`);
+    
+    // Check cache first
+    if (fs.existsSync(webpPath)) {
+      const stats = fs.statSync(webpPath);
+      const ageInHours = (new Date().getTime() - stats.mtime.getTime()) / (1000 * 60 * 60);
+      if (ageInHours < 24) {
+        sendProgress('cached', 100, 'Using cached screenshot');
+        res.write(`data: ${JSON.stringify({ stage: 'complete', imageUrl: `/api/screenshot?url=${encodeURIComponent(rawUrl)}&width=${width}&height=${height}&format=webp` })}\n\n`);
+        return res.end();
       }
     }
 
-    // 2. Try OG Image or Favicon
-    console.log('Attempting to fetch HTML for OG image/favicon...');
-    const html = await fetchHtml(url);
-    if (html) {
+    // Add job to background queue
+     const key = `${crypto.createHash('md5').update(url).digest('hex')}-${width}x${height}`;
+     
+     const queueStatus = screenshotQueue.getQueueStatus();
+     if (queueStatus.queueLength > 0) {
+       sendProgress('queued', 15, `Queued (${queueStatus.queueLength + 1} in queue)`);
+     }
+     
+     try {
+       const job = await screenshotQueue.add({ url, width, height, key, format: 'webp', status });
+       const result = await job.promise;
+       
+       if (result.success) {
+         sendProgress('complete', 100, 'Screenshot ready!');
+         res.write(`data: ${JSON.stringify({ stage: 'complete', imageUrl: `/api/screenshot?url=${encodeURIComponent(rawUrl)}&width=${width}&height=${height}&format=webp` })}
+
+`);
+         res.end();
+       } else {
+         throw new Error(result.error);
+       }
+     } catch (error) {
+       console.error('[Queue] Job failed:', error);
+       res.write(`data: ${JSON.stringify({ stage: 'error', message: error.message })}
+
+`);
+       res.end();
+     }
+    
+  } catch (error) {
+    console.error('[Stream] Screenshot generation failed:', error);
+    res.write(`data: ${JSON.stringify({ stage: 'error', message: error.message })}\n\n`);
+    res.end();
+  }
+});
+
+// GET /api/queue/status - Get queue status
+apiRouter.get('/queue/status', (req, res) => {
+  const status = screenshotQueue.getQueueStatus();
+  res.json({
+    ...status,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// GET /api/cache/stats - Get cache statistics
+apiRouter.get('/cache/stats', (req, res) => {
+  const stats = cacheManager.getStats();
+  res.json({
+    ...stats,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// POST /api/cache/cleanup - Manual cache cleanup
+apiRouter.post('/cache/cleanup', (req, res) => {
+  const cleaned = cacheManager.cleanup();
+  res.json({
+    message: `Cleaned up ${cleaned} expired cache entries`,
+    cleanedEntries: cleaned,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// DELETE /api/cache/invalidate - Invalidate specific cache entry
+apiRouter.delete('/cache/invalidate', (req, res) => {
+  const { url, width = 480, height = 270 } = req.query;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+  
+  const hash = crypto.createHash('md5').update(normalizeUrl(url)).digest('hex');
+  const cacheKey = `${hash}-${width}x${height}`;
+  
+  cacheManager.invalidate(cacheKey);
+  
+  res.json({
+    message: 'Cache entry invalidated',
+    url: normalizeUrl(url),
+    cacheKey,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// POST /api/screenshot - Get a screenshot of a website
+apiRouter.post('/screenshot', async (req, res) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  const { url: rawUrl, width = 480, height = 270, refresh = false, status = 'Live', format = 'webp' } = req.body;
+  const url = normalizeUrl(rawUrl);
+
+  console.log(`[API] Screenshot POST request received: ${rawUrl}, ${width}x${height}, ${status}, ${format}`);
+
+  if (!url) {
+    return res.status(400).send('URL is required');
+  }
+
+  const key = `${crypto.createHash('md5').update(url).digest('hex')}-${width}x${height}`;
+  const cacheTTL = refresh ? 0 : (status === 'Live' ? 3600 : null);
+
+  if (!refresh) {
+    const cached = cacheManager.get(key, cacheTTL);
+    if (cached) {
+      console.log(`[Cache] HIT: ${key}`);
+      const { filePath, format: cachedFormat } = cached;
+      res.setHeader('Content-Type', `image/${cachedFormat}`);
+      res.sendFile(filePath);
+      return;
+    }
+  }
+
+  console.log(`[Cache] MISS: ${key}`);
+
+  try {
+    const job = await screenshotQueue.add({ url, width, height, key, format, status });
+    const result = await job.promise;
+
+    if (result.success) {
+      res.setHeader('Content-Type', `image/${result.format}`);
+      res.sendFile(result.filePath);
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error('Error taking screenshot:', error.message);
+    console.error('Full error object:', error);
+    console.error('Stack trace:', error.stack);
+
+    try {
+      const html = await fetchHtml(url);
       const ogImage = getOgImage(html, url);
-      const favicon = getFavicon(html, url);
-      console.log(`OG Image found: ${ogImage}`);
-      console.log(`Favicon found: ${favicon}`);
-      const imageUrl = ogImage || favicon;
 
-      if (imageUrl) {
+      if (ogImage) {
         try {
-          console.log(`Attempting to fetch image: ${imageUrl}`);
-          const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 5000 });
-          const imageBuffer = Buffer.from(imageResponse.data, 'binary');
-          const contentType = imageResponse.headers['content-type'];
+          const response = await axios.get(ogImage, { responseType: 'arraybuffer' });
+          const optimizedImage = await sharp(response.data)
+            .resize({ width: 400, height: 300, fit: 'cover' })
+            .webp({ quality: 80 })
+            .toBuffer();
 
-          if (contentType && contentType.startsWith('image/')) {
-            console.log(`[Cache] Image write skipped for diagnostics: ${imageUrl}`);
-            res.set({ 'Content-Type': contentType, 'Cache-Control': 'public, max-age=86400' });
-            return res.send(imageBuffer);
-          }
-        } catch (fetchError) {
-          console.log(`Failed to fetch image from ${imageUrl}. Moving to final fallback. Error:`, fetchError.message);
+          const fallbackPath = join(screenshotsDir, `${key}-fallback.webp`);
+          fs.writeFileSync(fallbackPath, optimizedImage);
+          cacheManager.set(key, fallbackPath, 'webp');
+
+          res.setHeader('Content-Type', 'image/webp');
+          res.send(optimizedImage);
+          return;
+        } catch (axiosError) {
+          console.error('Error fetching or processing OG image:', axiosError.message);
         }
       }
+
+      const favicon = getFavicon(html, url);
+      if (favicon) {
+        try {
+          const response = await axios.get(favicon, { responseType: 'arraybuffer' });
+          res.setHeader('Content-Type', response.headers['content-type']);
+          res.send(response.data);
+          return;
+        } catch (axiosError) {
+          console.error('Error fetching favicon:', axiosError.message);
+        }
+      }
+
+      const placeholderSvg = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grad)" />
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
+            Preview not available
+          </text>
+        </svg>
+      `;
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.status(200).send(placeholderSvg);
+
+    } catch (fetchError) {
+      console.error('Error fetching HTML for fallback:', fetchError.message);
+      const placeholderSvg = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grad)" />
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
+            Preview not available
+          </text>
+        </svg>
+      `;
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.status(200).send(placeholderSvg);
+    }
+  }
+});
+
+// GET /api/screenshot - Get a screenshot of a website
+apiRouter.get('/screenshot', async (req, res) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  const { url: rawUrl, width = 480, height = 270, refresh = false, status = 'Live', format = 'webp' } = req.query;
+  const url = normalizeUrl(rawUrl);
+
+  console.log(`[API] Screenshot request received: ${rawUrl}, ${width}x${height}, ${status}, ${format}`);
+
+  if (!url) {
+    return res.status(400).send('URL is required');
+  }
+
+  const key = `${crypto.createHash('md5').update(url).digest('hex')}-${width}x${height}`;
+  const cacheTTL = refresh ? 0 : (status === 'Live' ? 3600 : null);
+
+  if (!refresh) {
+    const cached = cacheManager.get(key, cacheTTL);
+    if (cached) {
+      console.log(`[Cache] HIT: ${key}`);
+      const { filePath, format: cachedFormat } = cached;
+      res.setHeader('Content-Type', `image/${cachedFormat}`);
+      res.sendFile(filePath);
+      return;
     }
   }
 
-  // Fallback: Create status-based placeholder
-  console.log(`All preview methods failed for ${url}. Generating SVG placeholder.`);
-  const cleanUrl = url.replace('https://', '').replace('http://', '').replace('www.', '');
-  const now = new Date().toLocaleString();
-  
-  // Different colors based on status
-  let gradientColors, statusText, statusIcon;
-  switch (status) {
-    case 'Live':
-      gradientColors = ['#10b981', '#059669', '#047857']; // Green
-      statusText = '🟢 Live Website';
-      statusIcon = '🌐';
-      break;
-    case 'Planned':
-      gradientColors = ['#f59e0b', '#d97706', '#b45309']; // Orange
-      statusText = '🟡 In Planning';
-      statusIcon = '📋';
-      break;
-    case 'Active':
-      gradientColors = ['#3b82f6', '#2563eb', '#1d4ed8']; // Blue
-      statusText = '🔵 In Development';
-      statusIcon = '⚡';
-      break;
-    case 'On Hold':
-      gradientColors = ['#ef4444', '#dc2626', '#b91c1c']; // Red
-      statusText = '🔴 On Hold';
-      statusIcon = '⏸️';
-      break;
-    default:
-      gradientColors = ['#6b7280', '#4b5563', '#374151']; // Gray
-      statusText = '⚪ Unknown Status';
-      statusIcon = '❓';
+  console.log(`[Cache] MISS: ${key}`);
+
+  try {
+    const job = await screenshotQueue.add({ url, width, height, key, format, status });
+    const result = await job.promise;
+
+    if (result.success) {
+      res.setHeader('Content-Type', `image/${result.format}`);
+      res.sendFile(result.filePath);
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    console.error('Error taking screenshot:', error.message);
+    console.error('Full error object:', error);
+    console.error('Stack trace:', error.stack);
+
+    try {
+      const html = await fetchHtml(url);
+      const ogImage = getOgImage(html, url);
+
+      if (ogImage) {
+        try {
+          const response = await axios.get(ogImage, { responseType: 'arraybuffer' });
+          const optimizedImage = await sharp(response.data)
+            .resize({ width: 400, height: 300, fit: 'cover' })
+            .webp({ quality: 80 })
+            .toBuffer();
+
+          const fallbackPath = join(screenshotsDir, `${key}-fallback.webp`);
+          fs.writeFileSync(fallbackPath, optimizedImage);
+          cacheManager.set(key, fallbackPath, 'webp');
+
+          res.setHeader('Content-Type', 'image/webp');
+          res.send(optimizedImage);
+          return;
+        } catch (axiosError) {
+          console.error('Error fetching or processing OG image:', axiosError.message);
+        }
+      }
+
+      const favicon = getFavicon(html, url);
+      if (favicon) {
+        try {
+          const response = await axios.get(favicon, { responseType: 'arraybuffer' });
+          res.setHeader('Content-Type', response.headers['content-type']);
+          res.send(response.data);
+          return;
+        } catch (axiosError) {
+          console.error('Error fetching favicon:', axiosError.message);
+        }
+      }
+
+      const placeholderSvg = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grad)" />
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
+            Preview not available
+          </text>
+        </svg>
+      `;
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.status(200).send(placeholderSvg);
+
+    } catch (fetchError) {
+      console.error('Error fetching HTML for fallback:', fetchError.message);
+      const errorSvg = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="#f8d7da" />
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#721c24">
+            Error: Could not fetch URL
+          </text>
+        </svg>
+      `;
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.status(500).send(errorSvg);
+    }
   }
-  
-  const svgContent = `
-    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${gradientColors[0]};stop-opacity:1" />
-          <stop offset="50%" style="stop-color:${gradientColors[1]};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${gradientColors[2]};stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#grad)" rx="12"/>
-      <text x="50%" y="35%" text-anchor="middle" fill="white" font-family="Arial" font-size="24">${statusIcon}</text>
-      <text x="50%" y="50%" text-anchor="middle" fill="white" font-family="Arial" font-size="18" font-weight="bold">${cleanUrl}</text>
-      <text x="50%" y="65%" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-family="Arial" font-size="12">${statusText}</text>
-      <text x="50%" y="85%" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-family="Arial" font-size="10">Updated: ${now}</text>
-    </svg>
-  `;
-  
-  // Placeholder is generated but not saved to disk for diagnostics
-console.log(`Serving placeholder from memory: ${url}`);
-  
-  res.set({
-    'Content-Type': 'image/svg+xml',
-    'Content-Length': svgContent.length,
-    'Cache-Control': 'public, max-age=3600'
-  });
-  res.send(svgContent);
 });
 
 // Use the router for all /api routes
@@ -305,8 +838,15 @@ app.use('/api', apiRouter);
 // Start the server for local development
 if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`Server is running on http://localhost:${PORT}`);
+    // Initialize database
+    try {
+      await initializeDb();
+      console.log('[Server] Database initialized successfully');
+    } catch (error) {
+      console.error('[Server] Database initialization failed:', error);
+    }
   });
 }
 
