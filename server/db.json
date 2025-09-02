@@ -56,6 +56,17 @@
         "New"
       ],
       "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 10,
+      "name": "Digitalshop",
+      "site": "digitalshop.in/",
+      "status": "Live",
+      "progress": 0,
+      "tags": [
+        "New"
+      ],
+      "updatedAt": "2025-09-02"
     }
   ],
   "tasks": [
