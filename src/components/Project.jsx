@@ -5,21 +5,11 @@ import { niceDate, badgeFor, urlOfSite } from '../utils/helpers';
 
 function PreviewImage({ url, status, width = 480, height = 270 }) {
   const [isLoaded, setIsLoaded] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const imgRef = useRef(null);
   const observerRef = useRef(null);
 
-  const apiUrl = `/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}&format=webp`;
-
-  // Simple image loading
-  const loadImage = () => {
-    if (isLoaded || imageError) return;
-    
-    if (imgRef.current) {
-      imgRef.current.src = apiUrl;
-    }
-  };
+  const apiUrl = `/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}`;
 
   // Intersection Observer for lazy loading
   useEffect(() => {
@@ -27,7 +17,6 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsInView(true);
-          loadImage();
           observerRef.current?.disconnect();
         }
       },
@@ -47,11 +36,6 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
     setIsLoaded(true);
   };
 
-  const handleImageError = () => {
-    setImageError(true);
-    setIsLoaded(true);
-  };
-
   return (
     <div 
       ref={imgRef}
@@ -67,25 +51,14 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
         </div>
       )}
 
-      {/* Main image */}
+      {/* Main image - SVG or actual screenshot */}
       {isInView && (
         <img
           src={apiUrl}
           alt={`${url} preview`}
           className="w-full h-full object-cover"
           onLoad={handleImageLoad}
-          onError={handleImageError}
         />
-      )}
-
-      {/* Error state */}
-      {imageError && (
-        <div className="absolute inset-0 bg-gradient-to-br from-red-900/50 to-red-800/50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-2xl mb-2">⚠️</div>
-            <p className="text-xs text-white">Preview unavailable</p>
-          </div>
-        </div>
       )}
     </div>
   );
