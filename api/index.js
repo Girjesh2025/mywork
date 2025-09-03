@@ -197,26 +197,35 @@ app.get('/api/screenshot', async (req, res) => {
 
   try {
     const normalizedUrl = normalizeUrl(url);
+    console.log('Attempting to screenshot:', normalizedUrl);
+    
     const config = await getBrowserConfig();
+    console.log('Browser config:', JSON.stringify(config, null, 2));
     
     const browser = await puppeteer.launch(config);
+    console.log('Browser launched successfully');
+    
     const page = await browser.newPage();
+    console.log('New page created');
     
     await page.setViewport({ 
       width: parseInt(width), 
       height: parseInt(height),
       deviceScaleFactor: 1
     });
+    console.log('Viewport set');
     
     await page.goto(normalizedUrl, { 
       waitUntil: 'networkidle0',
       timeout: 30000 
     });
+    console.log('Page loaded successfully');
     
     const screenshot = await page.screenshot({ 
       type: format === 'png' ? 'png' : 'webp',
       quality: format === 'webp' ? 80 : undefined
     });
+    console.log('Screenshot captured successfully');
     
     await browser.close();
     
@@ -229,28 +238,28 @@ app.get('/api/screenshot', async (req, res) => {
   } catch (error) {
     console.error('Screenshot error:', error);
     
-    // Return a placeholder image on error
-    try {
-      const placeholderSvg = `
+    // Return a placeholder SVG on error
+    const placeholderSvg = `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="#f3f4f6"/>
-          <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="14" fill="#6b7280" text-anchor="middle" dy=".3em">Preview unavailable</text>
-        </svg>
-      `;
-      
-      const buffer = Buffer.from(placeholderSvg);
-      const webpBuffer = await sharp(buffer).webp({ quality: 80 }).toBuffer();
-      
-      res.set({
-        'Content-Type': 'image/webp',
-        'Cache-Control': 'public, max-age=3600'
-      });
-      
-      res.send(webpBuffer);
-    } catch (placeholderError) {
-      console.error('Placeholder generation error:', placeholderError);
-      res.status(500).json({ error: 'Failed to generate screenshot' });
-    }
+          <defs>
+            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grad)" />
+          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
+            Preview not available
+          </text>
+        </svg>`;
+    
+    res.set({
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=0, must-revalidate',
+      'Cross-Origin-Resource-Policy': 'cross-origin'
+    });
+    
+    res.send(placeholderSvg);
   }
 });
 
