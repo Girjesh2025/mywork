@@ -47,40 +47,102 @@ const getBrowserConfig = async () => {
 let db = {
   projects: [
     {
-      "id": "1",
-      "name": "handwriting converter",
-      "site": "handwriting-converter-delta.vercel.app",
+      "id": 3,
+      "name": "EasyPDFIndia",
+      "site": "www.easypdfindia.com/",
+      "status": "Live",
+      "progress": 100,
+      "tags": ["Portfolio", "Design"],
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 4,
+      "name": "SmartCalculator ",
+      "site": "yourcalculator.in/",
+      "status": "Live",
+      "progress": 100,
+      "tags": ["E‑commerce", "Design"],
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 7,
+      "name": "kids mathes ",
+      "site": "kidsmathe.netlify.app/",
       "status": "Live",
       "progress": 0,
       "tags": ["New"],
-      "updatedAt": "03 Sept 2025"
+      "updatedAt": "2025-09-02"
     },
     {
-      "id": "2",
+      "id": 8,
+      "name": "oneclickpdf",
+      "site": "www.oneclickpdf.info/",
+      "status": "Planned",
+      "progress": 0,
+      "tags": ["New"],
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 9,
+      "name": "lovelyinvoice",
+      "site": "receipt-revelry.vercel.app/",
+      "status": "Planned",
+      "progress": 0,
+      "tags": ["New"],
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 10,
+      "name": "Digitalshop",
+      "site": "digitalshop.in/",
+      "status": "Live",
+      "progress": 0,
+      "tags": ["New"],
+      "updatedAt": "2025-09-02"
+    },
+    {
+      "id": 11,
       "name": "Daily quotes",
-      "site": "daily-quotes.vercel.app",
+      "site": "daily-quotes.vercel.app/",
       "status": "Live",
       "progress": 100,
       "tags": ["New"],
-      "updatedAt": "03 Sept 2025"
+      "updatedAt": "2025-09-03"
     },
     {
-      "id": "3",
-      "name": "Digitalshop",
-      "site": "digitalshop.ly",
+      "id": 12,
+      "name": "handwriting convertor ",
+      "site": "handwriting-converter-delta.vercel.app/",
       "status": "Live",
       "progress": 0,
       "tags": ["New"],
-      "updatedAt": "02 Sept 2025"
+      "updatedAt": "2025-09-03"
     }
   ],
   tasks: [
     {
-      "id": "1",
-      "title": "Complete project documentation",
-      "status": "pending",
-      "priority": "high",
-      "dueDate": "2024-01-15"
+      "id": 1,
+      "text": "Set up auth",
+      "due": "2025-08-22",
+      "done": false
+    },
+    {
+      "id": 2,
+      "text": "Write documentation",
+      "due": "2025-08-20",
+      "done": false
+    },
+    {
+      "id": 3,
+      "text": "Add email notifications",
+      "due": "2025-08-18",
+      "done": false
+    },
+    {
+      "id": 4,
+      "text": "Trade jinni 2025",
+      "due": "2025-08-26",
+      "done": true
     }
   ]
 };
