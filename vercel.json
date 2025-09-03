@@ -15,20 +15,11 @@
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    }
-  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "cleanUrls": true,
+  "trailingSlash": false
 }
