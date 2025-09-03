@@ -6,6 +6,8 @@ import { niceDate, badgeFor, urlOfSite } from '../utils/helpers';
 function PreviewImage({ url, status, width = 480, height = 270 }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isInView, setIsInView] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const imgRef = useRef(null);
   const observerRef = useRef(null);
 
@@ -34,6 +36,25 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
 
   const handleImageLoad = () => {
     setIsLoaded(true);
+    setHasError(false);
+  };
+
+  const handleImageError = () => {
+    setHasError(true);
+    setIsLoaded(true); // Stop showing loading spinner
+  };
+
+  const handleRetry = () => {
+    if (retryCount < 2) {
+      setRetryCount(prev => prev + 1);
+      setHasError(false);
+      setIsLoaded(false);
+      // Force image reload by adding timestamp
+      const img = imgRef.current?.querySelector('img');
+      if (img) {
+        img.src = `${apiUrl}&retry=${Date.now()}`;
+      }
+    }
   };
 
   return (
@@ -42,7 +63,7 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
       className="relative aspect-[16/9] rounded-xl overflow-hidden border border-white/10 mb-3 bg-gray-800"
     >
       {/* Loading placeholder */}
-      {!isLoaded && (
+      {!isLoaded && !hasError && (
         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
@@ -51,14 +72,48 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
         </div>
       )}
 
+      {/* Error state */}
+      {hasError && (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-900/20 to-gray-900">
+          <div className="text-center p-4">
+            <div className="text-2xl mb-2">⚠️</div>
+            <p className="text-xs text-gray-400 mb-2">Preview unavailable</p>
+            {retryCount < 2 && (
+              <button 
+                onClick={handleRetry}
+                className="text-xs text-blue-400 hover:text-blue-300 underline"
+              >
+                Retry ({2 - retryCount} left)
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main image - SVG or actual screenshot */}
       {isInView && (
         <img
-          src={apiUrl}
+          src={`${apiUrl}${retryCount > 0 ? `&retry=${retryCount}` : ''}`}
           alt={`${url} preview`}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            isLoaded && !hasError ? 'opacity-100' : 'opacity-0'
+          }`}
           onLoad={handleImageLoad}
+          onError={handleImageError}
         />
+      )}
+
+      {/* Status indicator overlay */}
+      {isLoaded && !hasError && (
+        <div className="absolute top-2 right-2">
+          <div className={`px-2 py-1 rounded text-xs font-medium ${
+            status === 'Live' ? 'bg-green-500/80 text-white' :
+            status === 'Development' ? 'bg-yellow-500/80 text-white' :
+            'bg-gray-500/80 text-white'
+          }`}>
+            {status}
+          </div>
+        </div>
       )}
     </div>
   );

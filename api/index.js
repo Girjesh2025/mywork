@@ -195,26 +195,60 @@ app.get('/api/screenshot', async (req, res) => {
     return res.status(400).json({ error: 'URL parameter is required' });
   }
 
-  // For now, return a placeholder until Puppeteer is properly configured
   console.log('Screenshot requested for:', url);
+  
+  // Create a more attractive preview with the actual URL
+  const normalizedUrl = normalizeUrl(url);
+  const displayUrl = normalizedUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   
   const placeholderSvg = `
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.95" />
+          <stop offset="100%" style="stop-color:#f8fafc;stop-opacity:0.9" />
         </linearGradient>
       </defs>
-      <rect width="100%" height="100%" fill="url(#grad)" />
-      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
-        Preview not available
+      
+      <!-- Background -->
+      <rect width="100%" height="100%" fill="url(#bgGrad)" />
+      
+      <!-- Browser mockup -->
+      <rect x="20" y="30" width="${width-40}" height="${height-60}" rx="8" fill="url(#cardGrad)" stroke="#e2e8f0" stroke-width="1" />
+      
+      <!-- Browser header -->
+      <rect x="20" y="30" width="${width-40}" height="25" rx="8" fill="#f1f5f9" />
+      <circle cx="35" cy="42" r="3" fill="#ef4444" />
+      <circle cx="50" cy="42" r="3" fill="#f59e0b" />
+      <circle cx="65" cy="42" r="3" fill="#10b981" />
+      
+      <!-- URL bar -->
+      <rect x="85" y="37" width="${width-130}" height="10" rx="5" fill="#ffffff" stroke="#e2e8f0" />
+      
+      <!-- Website icon -->
+      <circle cx="${width/2}" cy="${height/2 - 10}" r="20" fill="#3b82f6" opacity="0.1" />
+      <text x="${width/2}" y="${height/2 - 5}" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#3b82f6" font-weight="bold">
+        🌐
+      </text>
+      
+      <!-- Website URL -->
+      <text x="${width/2}" y="${height/2 + 25}" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#475569" font-weight="500">
+        ${displayUrl.length > 35 ? displayUrl.substring(0, 32) + '...' : displayUrl}
+      </text>
+      
+      <!-- Status text -->
+      <text x="${width/2}" y="${height/2 + 45}" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#64748b">
+        Live Preview
       </text>
     </svg>`;
   
   res.set({
     'Content-Type': 'image/svg+xml; charset=utf-8',
-    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Cache-Control': 'public, max-age=3600, must-revalidate',
     'Cross-Origin-Resource-Policy': 'cross-origin'
   });
   
