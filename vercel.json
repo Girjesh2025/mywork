@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "api/index.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["../node_modules/puppeteer/.local-chromium/**"]
+      }
     },
     {
       "src": "package.json",
@@ -14,12 +17,5 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "src": "/(.*)", "dest": "/index.html" }
-  ],
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30
-    }
-  },
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }
