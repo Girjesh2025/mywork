@@ -195,6 +195,40 @@ app.get('/api/screenshot', async (req, res) => {
     return res.status(400).json({ error: 'URL parameter is required' });
   }
 
+  // For now, return a placeholder until Puppeteer is properly configured
+  console.log('Screenshot requested for:', url);
+  
+  const placeholderSvg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grad)" />
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
+        Preview not available
+      </text>
+    </svg>`;
+  
+  res.set({
+    'Content-Type': 'image/svg+xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Cross-Origin-Resource-Policy': 'cross-origin'
+  });
+  
+  res.send(placeholderSvg);
+});
+
+// Alternative screenshot endpoint that attempts Puppeteer
+app.get('/api/screenshot-puppeteer', async (req, res) => {
+  const { url, width = 480, height = 270, format = 'webp' } = req.query;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL parameter is required' });
+  }
+
   try {
     const normalizedUrl = normalizeUrl(url);
     console.log('Attempting to screenshot:', normalizedUrl);
