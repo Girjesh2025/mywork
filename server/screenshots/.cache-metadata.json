@@ -1,117 +1,37 @@
 {
-  "8ffdefbdec956b595d257f0aaeefd623-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/8ffdefbdec956b595d257f0aaeefd623-480x270.webp",
+  "4d1717a70b8bb7f81d74495c4b86a844-480x270": {
+    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/4d1717a70b8bb7f81d74495c4b86a844-480x270.webp",
     "format": "webp",
-    "createdAt": 1756837478565
-  },
-  "undefined": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/undefined.webp",
-    "format": "webp",
-    "createdAt": 1756837773876
-  },
-  "acaf472b97d51393a78ba08dcf08f554-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/acaf472b97d51393a78ba08dcf08f554-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756837867495
-  },
-  "795f3f5ac48bc4769dad32f5800c61ba-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/795f3f5ac48bc4769dad32f5800c61ba-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756837876311
-  },
-  "461033e8a096fb4c002a068bf9031aed-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/461033e8a096fb4c002a068bf9031aed-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756838166645
-  },
-  "461033e8a096fb4c002a068bf9031aed-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/461033e8a096fb4c002a068bf9031aed-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756838247282
-  },
-  "d854a76191b918a45143fe4f18fc6698-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/d854a76191b918a45143fe4f18fc6698-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756838815678
-  },
-  "d04620d4e9821e46a5d98671686f0253-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/d04620d4e9821e46a5d98671686f0253-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756838847850
-  },
-  "d04620d4e9821e46a5d98671686f0253-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/d04620d4e9821e46a5d98671686f0253-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756838851411
-  },
-  "04b87ee9b10d14e1ecc46f3ffdcbd18d-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/04b87ee9b10d14e1ecc46f3ffdcbd18d-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756868790265
-  },
-  "4d1717a70b8bb7f81d74495c4b86a844-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/4d1717a70b8bb7f81d74495c4b86a844-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756868965013
-  },
-  "8d9a0901aea180905e22e41d355318bc-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/8d9a0901aea180905e22e41d355318bc-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756868975404
+    "createdAt": 1758126171742
   },
   "8d9a0901aea180905e22e41d355318bc-480x270": {
     "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/8d9a0901aea180905e22e41d355318bc-480x270.webp",
     "format": "webp",
-    "createdAt": 1756868980014
-  },
-  "fef28f18c08a08fe831026e836cc535a-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/fef28f18c08a08fe831026e836cc535a-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756868987164
-  },
-  "fef28f18c08a08fe831026e836cc535a-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/fef28f18c08a08fe831026e836cc535a-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756868998705
-  },
-  "1f8cf269e322bf48f66da5bc2e4e4e03-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/1f8cf269e322bf48f66da5bc2e4e4e03-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756869019730
-  },
-  "1f8cf269e322bf48f66da5bc2e4e4e03-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/1f8cf269e322bf48f66da5bc2e4e4e03-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756869024223
-  },
-  "bf646a8e7dd0d7bdf345d4d45132cb12-50x28": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/bf646a8e7dd0d7bdf345d4d45132cb12-50x28.webp",
-    "format": "webp",
-    "createdAt": 1756869028558
-  },
-  "952a5c27ebaac7601dfc3e0f8b129f32-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/952a5c27ebaac7601dfc3e0f8b129f32-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756902813890
-  },
-  "04b87ee9b10d14e1ecc46f3ffdcbd18d-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/04b87ee9b10d14e1ecc46f3ffdcbd18d-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756902866435
-  },
-  "bf646a8e7dd0d7bdf345d4d45132cb12-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/bf646a8e7dd0d7bdf345d4d45132cb12-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756902872756
-  },
-  "4d1717a70b8bb7f81d74495c4b86a844-480x270": {
-    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/4d1717a70b8bb7f81d74495c4b86a844-480x270.webp",
-    "format": "webp",
-    "createdAt": 1756902878040
+    "createdAt": 1758126192408
   },
   "d854a76191b918a45143fe4f18fc6698-480x270": {
     "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/d854a76191b918a45143fe4f18fc6698-480x270.webp",
     "format": "webp",
-    "createdAt": 1756902885984
+    "createdAt": 1758126180432
+  },
+  "d04620d4e9821e46a5d98671686f0253-480x270": {
+    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/d04620d4e9821e46a5d98671686f0253-480x270.webp",
+    "format": "webp",
+    "createdAt": 1758126186507
+  },
+  "fef28f18c08a08fe831026e836cc535a-480x270": {
+    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/fef28f18c08a08fe831026e836cc535a-480x270.webp",
+    "format": "webp",
+    "createdAt": 1758126197551
+  },
+  "bf646a8e7dd0d7bdf345d4d45132cb12-480x270": {
+    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/bf646a8e7dd0d7bdf345d4d45132cb12-480x270.webp",
+    "format": "webp",
+    "createdAt": 1758126203643
+  },
+  "04b87ee9b10d14e1ecc46f3ffdcbd18d-480x270": {
+    "filePath": "/Users/girjesh/Desktop/mywork_dashboard/server/screenshots/04b87ee9b10d14e1ecc46f3ffdcbd18d-480x270.webp",
+    "format": "webp",
+    "createdAt": 1758126210679
   }
 }

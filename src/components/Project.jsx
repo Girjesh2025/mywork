@@ -11,7 +11,12 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
   const imgRef = useRef(null);
   const observerRef = useRef(null);
 
-  const apiUrl = `/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}`;
+  // Get API base URL from environment or use relative URL
+  // In production, we use the absolute URL from .env.production
+  // In development, we use a relative URL that gets proxied through Vite
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+  // Add cache busting parameter to prevent stale images
+  const apiUrl = `${API_BASE_URL}/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}&t=${new Date().getTime().toString().slice(0, -4)}`;
 
   // Intersection Observer for lazy loading
   useEffect(() => {
@@ -100,6 +105,7 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
           }`}
           onLoad={handleImageLoad}
           onError={handleImageError}
+          crossOrigin="anonymous"
         />
       )}
 
@@ -137,8 +143,8 @@ export function ProjectCard({ p, onDelete, onEdit }) {
       <div className="mt-3 flex items-center justify-between">
         <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${badgeFor(p.status)}`}>{p.status}</span>
         <div className="flex gap-2">
-          {onEdit && (<button onClick={onEdit} className="text-blue-400 hover:text-blue-200 text-xs">Edit</button>)}
-          {onDelete && (<button onClick={onDelete} className="text-rose-400 hover:text-rose-200 text-xs">Delete</button>)}
+          {onEdit && (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} className="px-2 py-1 text-blue-400 hover:text-blue-300 hover:bg-blue-900/30 rounded transition-colors text-xs">Edit</button>)}
+          {onDelete && (<button onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }} className="px-2 py-1 text-rose-400 hover:text-rose-300 hover:bg-rose-900/30 rounded transition-colors text-xs">Delete</button>)}
         </div>
       </div>
     </Card>

@@ -10,6 +10,19 @@ const sharp = require('sharp');
 // Check if we're in development mode
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
+// Check if we're in a serverless environment (like Vercel)
+const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Set CORS headers for all responses
+const setCorsHeaders = (res) => {
+  res.set({
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  });
+};
+
 // Import appropriate puppeteer version based on environment
 let puppeteer;
 let chrome;
@@ -43,9 +56,27 @@ const getBrowserConfig = async () => {
   }
 };
 
-// Simple in-memory database for Vercel
-let db = {
+// In-memory database
+const db = {
   projects: [
+    {
+      "id": 1,
+      "name": "TradeJinni",
+      "site": "tradejinni.com/",
+      "status": "Live",
+      "progress": 100,
+      "tags": ["E‑commerce", "Design"],
+      "updatedAt": "2025-08-22"
+    },
+    {
+      "id": 2,
+      "name": "Girjesh Gupta",
+      "site": "girjeshgupta.com/",
+      "status": "Live",
+      "progress": 100,
+      "tags": ["Portfolio", "Design"],
+      "updatedAt": "2025-08-22"
+    },
     {
       "id": 3,
       "name": "EasyPDFIndia",
@@ -149,7 +180,22 @@ let db = {
 
 const app = express();
 
-app.use(cors());
+// Enable CORS with specific options
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
+
+// Handle OPTIONS requests explicitly
+app.options('*', (req, res) => {
+  setCorsHeaders(res);
+  res.status(204).end();
+});
+
 app.use(express.json());
 
 // Utility functions
@@ -169,97 +215,136 @@ const normalizeUrl = (url) => {
   return url;
 };
 
+const generatePlaceholderSvg = (url, width, height) => {
+  // Extract domain name for display
+  const domain = url.split('/')[0];
+  
+  // Generate a consistent color based on the domain
+  const hash = domain.split('').reduce((acc, char) => {
+    return char.charCodeAt(0) + ((acc << 5) - acc);
+  }, 0);
+  
+  const hue = Math.abs(hash % 360);
+  const color = `hsl(${hue}, 70%, 60%)`;
+  const darkColor = `hsl(${hue}, 70%, 40%)`;
+  
+  // Create a more visually appealing SVG with better contrast
+  return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
+      <rect width="${width}" height="${height}" fill="#2a2a2a" />
+      <rect x="10" y="10" width="${parseInt(width) - 20}" height="${parseInt(height) - 20}" rx="5" fill="url(#grad)" />
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${darkColor};stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(parseInt(width), parseInt(height)) / 12}px" fill="#ffffff" font-weight="bold">
+        ${domain}
+      </text>
+      <text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(parseInt(width), parseInt(height)) / 18}px" fill="#ffffff">
+        Preview not available
+      </text>
+    </svg>
+  `;
+};
+
+
+
 // API Routes
-app.get('/api/projects', async (req, res) => {
-  try {
-    res.json(db.projects || []);
-  } catch (error) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ error: 'Failed to fetch projects' });
-  }
+app.get('/api/projects', (req, res) => {
+  res.json(db.projects);
 });
 
-app.post('/api/projects', async (req, res) => {
-  try {
-    const { name, site, status = 'Live', progress = 0, tags = ['New'] } = req.body;
-    
-    if (!name || !site) {
-      return res.status(400).json({ error: 'Name and site are required' });
-    }
-
-    const newProject = {
-      id: String(Date.now()),
-      name,
-      site,
-      status,
-      progress,
-      tags,
-      updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    };
-
-    db.projects.push(newProject);
-    res.status(201).json(newProject);
-  } catch (error) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ error: 'Failed to create project' });
+app.post('/api/projects', (req, res) => {
+  const { name, site, status = 'Live', progress = 0, tags = ['New'] } = req.body;
+  
+  if (!name || !site) {
+    return res.status(400).json({ error: 'Name and site are required' });
   }
+
+  // Get the highest ID and increment
+  const maxId = Math.max(...db.projects.map(p => p.id), 0);
+  const nextId = maxId + 1;
+
+  const newProject = {
+    id: nextId,
+    name,
+    site,
+    status,
+    progress,
+    tags,
+    updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  };
+
+  db.projects.push(newProject);
+  res.status(201).json(newProject);
 });
 
-app.put('/api/projects/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-    
-    const projectIndex = db.projects.findIndex(p => p.id === id);
-    if (projectIndex === -1) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    db.projects[projectIndex] = { ...db.projects[projectIndex], ...updates };
-    res.json(db.projects[projectIndex]);
-  } catch (error) {
-    console.error('Error updating project:', error);
-    res.status(500).json({ error: 'Failed to update project' });
+app.put('/api/projects/:id', (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  
+  const projectIndex = db.projects.findIndex(p => p.id === parseInt(id));
+  
+  if (projectIndex === -1) {
+    return res.status(404).json({ error: 'Project not found' });
   }
+
+  db.projects[projectIndex] = { ...db.projects[projectIndex], ...updates };
+  res.json(db.projects[projectIndex]);
 });
 
-app.delete('/api/projects/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const projectIndex = db.projects.findIndex(p => p.id === id);
-    if (projectIndex === -1) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    db.projects.splice(projectIndex, 1);
-    res.json({ message: 'Project deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting project:', error);
-    res.status(500).json({ error: 'Failed to delete project' });
+app.delete('/api/projects/:id', (req, res) => {
+  const { id } = req.params;
+  
+  const projectIndex = db.projects.findIndex(p => p.id === parseInt(id));
+  
+  if (projectIndex === -1) {
+    return res.status(404).json({ error: 'Project not found' });
   }
+
+  db.projects.splice(projectIndex, 1);
+  res.json({ message: 'Project deleted successfully' });
 });
 
-app.get('/api/tasks', async (req, res) => {
-  try {
-    res.json(db.tasks || []);
-  } catch (error) {
-    console.error('Error fetching tasks:', error);
-    res.status(500).json({ error: 'Failed to fetch tasks' });
-  }
+app.get('/api/tasks', (req, res) => {
+  res.json(db.tasks);
 });
 
 // Screenshot endpoint with serverless optimization
 app.get('/api/screenshot', async (req, res) => {
   const { url, width = 480, height = 270, format = 'webp' } = req.query;
   
+  // Set CORS headers for all responses
+  setCorsHeaders(res);
+  
   if (!url) {
     return res.status(400).json({ error: 'URL parameter is required' });
   }
 
+  // Always use SVG placeholders in production/Vercel environment
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+  
   try {
     const normalizedUrl = normalizeUrl(url);
     console.log('Attempting to screenshot:', normalizedUrl);
+    
+    // Always use SVG placeholders in production or serverless environments
+    if (isProduction || isServerless) {
+      console.log('Production/Serverless environment detected, using SVG placeholder');
+      const displayUrl = normalizedUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const placeholderSvg = generatePlaceholderSvg(displayUrl, width, height);
+      
+      res.set({
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+        'Cross-Origin-Resource-Policy': 'cross-origin'
+      });
+      
+      return res.send(placeholderSvg);
+    }
     
     const config = await getBrowserConfig();
     console.log('Browser config:', JSON.stringify(config, null, 2));
@@ -302,23 +387,12 @@ app.get('/api/screenshot', async (req, res) => {
     
     // Return a placeholder SVG on error
     const displayUrl = normalizeUrl(url).replace(/^https?:\/\//, '').replace(/\/$/, '');
-    const placeholderSvg = `
-        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
-            </linearGradient>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grad)" />
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
-            Preview not available
-          </text>
-        </svg>`;
+    const placeholderSvg = generatePlaceholderSvg(displayUrl, width, height);
     
+    // CORS headers already set by setCorsHeaders function
     res.set({
       'Content-Type': 'image/svg+xml; charset=utf-8',
-      'Cache-Control': 'public, max-age=0, must-revalidate',
+      'Cache-Control': 'public, max-age=86400',
       'Cross-Origin-Resource-Policy': 'cross-origin'
     });
     
@@ -330,6 +404,14 @@ app.get('/api/screenshot', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Start server if not in Vercel environment
+if (require.main === module) {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => {
+    console.log(`API server running on http://localhost:${PORT}`);
+  });
+}
 
 // Export for Vercel
 module.exports = app;

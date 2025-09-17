@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { today } from '../utils/helpers';
+import { fetchProjects, addProject as addProjectAPI, deleteProject as deleteProjectAPI } from '../utils/api';
 
 export default function NextProjectPage() {
   const [projects, setProjects] = useState([]);
@@ -9,8 +10,7 @@ export default function NextProjectPage() {
   const [tags, setTags] = useState("");
 
   useEffect(() => {
-    fetch('/api/projects')
-      .then(res => res.json())
+    fetchProjects()
       .then(data => setProjects(data.sort((a, b) => b.id - a.id)))
       .catch(error => console.error("Failed to fetch projects:", error));
   }, []);
@@ -30,13 +30,7 @@ export default function NextProjectPage() {
     };
 
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProject),
-      });
-      if (!response.ok) throw new Error('Failed to add project');
-      const addedProject = await response.json();
+      const addedProject = await addProjectAPI(newProject);
       setProjects([addedProject, ...projects]);
       setName("");
       setSite("");
@@ -49,10 +43,7 @@ export default function NextProjectPage() {
 
   async function deleteProject(projectId) {
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete project');
+      await deleteProjectAPI(projectId);
       setProjects(projects.filter(p => p.id !== projectId));
     } catch (error) {
       console.error(error);

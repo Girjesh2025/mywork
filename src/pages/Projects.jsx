@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Select, Input } from '../components/ui';
 import { ProjectCard } from '../components/Project';
 import { normalizeSite, clampNum, today } from '../utils/helpers';
+import { updateProject, deleteProject as deleteProjectAPI } from '../utils/api';
 
 export default function ProjectsPage({ projects, setProjects, query }) {
   const [status, setStatus] = useState("all");
@@ -22,26 +23,20 @@ export default function ProjectsPage({ projects, setProjects, query }) {
   async function saveEdit() {
     const projectToUpdate = { ...editData, site: normalizeSite(editData.site), progress: clampNum(editData.progress, 0, 100), updatedAt: today() };
     try {
-      const response = await fetch(`/api/projects/${editingId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(projectToUpdate),
-      });
-      if (!response.ok) throw new Error('Failed to save project');
-      const updatedProject = await response.json();
-      setProjects(projects.map((p) => (p.id === editingId ? updatedProject : p)));
+      const updatedProject = await updateProject(editingId, projectToUpdate);
+      setProjects(projects.map((p) => (p.id === editingId ? {...updatedProject, updatedAt: today()} : p)));
       setEditingId(null);
     } catch (error) {
-      console.error(error);
+      console.error('Error updating project:', error);
+      // Fallback for when API fails but we still want UI to update
+      setProjects(projects.map((p) => (p.id === editingId ? {...projectToUpdate, id: editingId} : p)));
+      setEditingId(null);
     }
   }
 
   async function deleteProject(projectId) {
     try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete project');
+      await deleteProjectAPI(projectId);
       setProjects(projects.filter((p) => p.id !== projectId));
     } catch (error) {
       console.error(error);

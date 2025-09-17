@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MENU } from './data/seed';
 import { today } from './utils/helpers';
+import { fetchProjects, addProject } from './utils/api';
 import { SearchIcon, BadgeIcon, BellIcon, DotIcon } from './components/Icons';
 import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/Projects';
@@ -16,8 +17,7 @@ export default function App() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
-    fetch('/api/projects')
-      .then(res => res.json())
+    fetchProjects()
       .then(data => setProjects(data))
       .catch(error => console.error("Failed to fetch projects:", error));
   }, []);
@@ -37,13 +37,7 @@ export default function App() {
     };
 
     try {
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProject),
-      });
-      if (!response.ok) throw new Error('Failed to add project');
-      const addedProject = await response.json();
+      const addedProject = await addProject(newProject);
       setProjects(prev => [...prev, addedProject]);
       setActive("projects");
     } catch (error) {
