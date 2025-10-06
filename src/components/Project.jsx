@@ -139,7 +139,25 @@ export function ProjectCard({ p, onDelete, onEdit }) {
         </div>
       </a>
       <div className="mt-3 flex flex-wrap gap-2 text-xs">{p.tags?.map((t) => (<span key={t} className="px-2 py-1 rounded-lg bg-white/10">{t}</span>))}</div>
-      <div className="mt-3 flex items-center justify-between text-xs opacity-70"><span>Last Updated</span><span className="flex items-center gap-2">{niceDate(p.updatedAt)} <CopyIcon className="w-4 h-4 opacity-70" /></span></div>
+      <div className="mt-3 flex items-center justify-between text-xs opacity-70">
+        <span>Last Updated</span>
+        <span className="flex items-center gap-2">
+          {niceDate(p.updatedAt)} 
+          <button 
+            onClick={(e) => { 
+              e.preventDefault(); 
+              e.stopPropagation(); 
+              navigator.clipboard.writeText(urlOfSite(p.site));
+              // Optional: Show a toast notification
+              console.log('URL copied to clipboard:', urlOfSite(p.site));
+            }} 
+            className="hover:opacity-100 transition-opacity"
+            title="Copy URL to clipboard"
+          >
+            <CopyIcon className="w-4 h-4 opacity-70" />
+          </button>
+        </span>
+      </div>
       <div className="mt-3 flex items-center justify-between">
         <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${badgeFor(p.status)}`}>{p.status}</span>
         <div className="flex gap-2">

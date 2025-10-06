@@ -44,6 +44,8 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const sharp = require('sharp');
 
+// Database integration will be handled by initializeDb function
+
 // Background processing queue
 class ScreenshotQueue {
   constructor() {
@@ -289,36 +291,30 @@ setInterval(() => {
 // --- Database Initialization using Dynamic Import for ESM ---
 let db;
 
+// Import Supabase client
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+
+// Initialize Supabase client
+let supabase;
 const initializeDb = async () => {
-  if (db) return db;
+  if (supabase) return supabase;
 
-  const { Low } = await import('lowdb');
-  const { JSONFile } = await import('lowdb/node');
-
-  const dbPath = join(__dirname, 'db.json');
-  console.log(`[DB Init] Database path resolved to: ${dbPath}`);
+  // Use Supabase as database
+  console.log('[DB Init] Using Supabase as database...');
   
-  const adapter = new JSONFile(dbPath);
-  const defaultData = {
-    projects: [
-      { id: 1, name: "Youtube", site: "https://www.youtube.com", status: "Active", progress: 70, tags: ["Landing", "Marketing"], updatedAt: "2025-08-10" },
-      { id: 2, name: "Google", site: "https://www.google.com", status: "Planned", progress: 35, tags: ["Shop", "UI"], updatedAt: "2025-07-02" },
-      { id: 3, name: "EasyPDFIndia", site: "https://www.easypdfindia.com/", status: "Live", progress: 10, tags: ["Portfolio", "Design"], updatedAt: "2026-07-23" },
-      { id: 4, name: "SmartCalculator", site: "https://www.online-calculator.com/", status: "On Hold", progress: 50, tags: ["E‑commerce", "Design"], updatedAt: "2025-06-20" },
-    ],
-    tasks: [
-      { id: 1, text: "Set up auth", due: "2025-08-22", done: false },
-      { id: 2, text: "Write documentation", due: "2025-08-20", done: true },
-      { id: 3, text: "Add email notifications", due: "2025-08-18", done: true },
-    ]
-  };
-
-  const newDb = new Low(adapter, defaultData);
-  console.log('[DB Init] Reading database...');
-  await newDb.read();
-  console.log('[DB Init] Database read complete.');
-  db = newDb;
-  return db;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[DB Init] Missing Supabase credentials in environment variables');
+    throw new Error('Missing Supabase credentials');
+  }
+  
+  supabase = createClient(supabaseUrl, supabaseKey);
+  console.log('[DB Init] Supabase client initialized successfully');
+  
+  return supabase;
 };
 const app = express();
 
@@ -368,16 +364,23 @@ const normalizeUrl = (url) => {
 // --- API Endpoints ---
 
 // GET /api/projects - Get all projects
+// Get projects
 apiRouter.get('/projects', async (req, res) => {
   console.log('--- Handling GET /api/projects ---');
   try {
-    const db = await initializeDb();
-    if (db.data && db.data.projects) {
-      console.log(`[Projects Route] Success! Found ${db.data.projects.length} projects.`);
-      res.json(db.data.projects);
+    const database = await initializeDb();
+    
+    const { data: projects, error } = await database
+      .from('projects')
+      .select('*')
+      .order('id', { ascending: true });
+    
+    if (error) {
+      console.error('[Projects Route] Supabase error:', error);
+      res.status(500).json({ error: 'Failed to fetch projects from database' });
     } else {
-      console.error('[Projects Route] db.data is null or does not contain projects.');
-      res.status(500).json({ error: 'Failed to read project data.' });
+      console.log(`[Projects Route] Success! Found ${projects.length} projects from Supabase.`);
+      res.json(projects);
     }
   } catch (error) {
     console.error('[Projects Route] An error occurred during DB initialization or read:', error);
@@ -389,7 +392,7 @@ apiRouter.get('/projects', async (req, res) => {
 apiRouter.post('/projects', async (req, res) => {
   console.log('--- Handling POST /api/projects ---');
   try {
-    const db = await initializeDb();
+    const database = await initializeDb();
     const newProject = req.body;
     
     // Validate required fields
@@ -397,14 +400,31 @@ apiRouter.post('/projects', async (req, res) => {
       return res.status(400).json({ error: 'Name and site are required' });
     }
     
-    // Add the project to the database
-    db.data.projects.push(newProject);
-    await db.write();
+    // Prepare project data for Supabase
+    const projectData = {
+      name: newProject.name,
+      site: newProject.site,
+      status: newProject.status || 'Planned',
+      progress: newProject.progress || 0,
+      tags: newProject.tags || [],
+      updated_at: new Date().toISOString().split('T')[0]
+    };
     
-    console.log(`[Add Project] Successfully added project: ${newProject.name}`);
-    res.status(201).json(newProject);
+    const { data: insertedProject, error } = await database
+      .from('projects')
+      .insert([projectData])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('[Add Project] Supabase error:', error);
+      res.status(500).json({ error: 'Failed to add project to database' });
+    } else {
+      console.log(`[Add Project] Successfully added project to Supabase: ${insertedProject.name}`);
+      res.status(201).json(insertedProject);
+    }
   } catch (error) {
-    console.error('[Add Project] Error:', error);
+    console.error('[Add Project] Error adding project:', error);
     res.status(500).json({ error: 'Failed to add project' });
   }
 });
@@ -413,24 +433,41 @@ apiRouter.post('/projects', async (req, res) => {
 apiRouter.put('/projects/:id', async (req, res) => {
   console.log(`--- Handling PUT /api/projects/${req.params.id} ---`);
   try {
-    const db = await initializeDb();
+    const database = await initializeDb();
     const projectId = parseInt(req.params.id);
     const updatedProject = req.body;
     
-    // Find and update the project
-    const projectIndex = db.data.projects.findIndex(p => p.id === projectId);
-    if (projectIndex === -1) {
-      return res.status(404).json({ error: 'Project not found' });
+    // Prepare update data for Supabase
+    const updateData = {
+      ...updatedProject
+    };
+    
+    // Remove frontend-specific fields that don't exist in Supabase
+    delete updateData.updatedAt;
+    delete updateData.id;
+    
+    // Set the correct updated_at field for Supabase
+    updateData.updated_at = new Date().toISOString().split('T')[0];
+    
+    const { data: updatedProjectData, error } = await database
+      .from('projects')
+      .update(updateData)
+      .eq('id', projectId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('[Update Project] Supabase error:', error);
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      return res.status(500).json({ error: 'Failed to update project in database' });
+    } else {
+      console.log(`[Update Project] Successfully updated project in Supabase: ${updatedProjectData.name}`);
+      return res.json(updatedProjectData);
     }
-    
-    // Update the project
-    db.data.projects[projectIndex] = { ...db.data.projects[projectIndex], ...updatedProject };
-    await db.write();
-    
-    console.log(`[Update Project] Successfully updated project: ${updatedProject.name}`);
-    res.json(db.data.projects[projectIndex]);
   } catch (error) {
-    console.error('[Update Project] Error:', error);
+    console.error('[Update Project] Error updating project:', error);
     res.status(500).json({ error: 'Failed to update project' });
   }
 });
@@ -439,37 +476,44 @@ apiRouter.put('/projects/:id', async (req, res) => {
 apiRouter.delete('/projects/:id', async (req, res) => {
   console.log(`--- Handling DELETE /api/projects/${req.params.id} ---`);
   try {
-    const db = await initializeDb();
+    const database = await initializeDb();
     const projectId = parseInt(req.params.id);
     
-    // Find and remove the project
-    const projectIndex = db.data.projects.findIndex(p => p.id === projectId);
-    if (projectIndex === -1) {
-      return res.status(404).json({ error: 'Project not found' });
+    const { data: deletedProject, error } = await database
+      .from('projects')
+      .delete()
+      .eq('id', projectId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('[Delete Project] Supabase error:', error);
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      res.status(500).json({ error: 'Failed to delete project from database' });
+    } else {
+      console.log(`[Delete Project] Successfully deleted project from Supabase: ${projectId}`);
+      res.json({ message: 'Project deleted successfully' });
     }
-    
-    const deletedProject = db.data.projects.splice(projectIndex, 1)[0];
-    await db.write();
-    
-    console.log(`[Delete Project] Successfully deleted project: ${deletedProject.name}`);
-    res.json({ message: 'Project deleted successfully', project: deletedProject });
   } catch (error) {
-    console.error('[Delete Project] Error:', error);
+    console.error('[Delete Project] Error deleting project:', error);
     res.status(500).json({ error: 'Failed to delete project' });
   }
 });
 
-// GET /api/tasks - Get all tasks
+// Get tasks
 apiRouter.get('/tasks', async (req, res) => {
   console.log('--- Handling GET /api/tasks ---');
   try {
-    const db = await initializeDb();
-    if (db.data && db.data.tasks) {
-      console.log(`[Tasks Route] Success! Found ${db.data.tasks.length} tasks.`);
-      res.json(db.data.tasks);
+    const database = await initializeDb();
+    
+    if (database.data && database.data.tasks) {
+      console.log(`[Tasks Route] Success! Found ${database.data.tasks.length} tasks from LowDB.`);
+      res.json(database.data.tasks);
     } else {
-      console.error('[Tasks Route] db.data is null or does not contain tasks.');
-      res.status(500).json({ error: 'Failed to read task data.' });
+      console.log('[Tasks Route] No tasks found, returning empty array.');
+      res.json([]);
     }
   } catch (error) {
     console.error('[Tasks Route] An error occurred during DB initialization or read:', error);

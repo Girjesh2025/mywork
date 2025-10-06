@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MENU } from './data/seed';
 import { today } from './utils/helpers';
-import { fetchProjects, addProject } from './utils/api';
+import { fetchProjects, addProject as apiAddProject } from './utils/api';
 import { SearchIcon, BadgeIcon, BellIcon, DotIcon } from './components/Icons';
 import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/Projects';
@@ -22,7 +22,7 @@ export default function App() {
       .catch(error => console.error("Failed to fetch projects:", error));
   }, []);
 
-  async function addProject() {
+  async function handleAddProject() {
     const nextId = projects.length ? Math.max(...projects.map(p => p.id)) + 1 : 1;
     const letter = String.fromCharCode(64 + ((nextId % 26) || 26));
     const name = `Project ${letter}`;
@@ -37,7 +37,7 @@ export default function App() {
     };
 
     try {
-      const addedProject = await addProject(newProject);
+      const addedProject = await apiAddProject(newProject);
       setProjects(prev => [...prev, addedProject]);
       setActive("projects");
     } catch (error) {
@@ -77,7 +77,7 @@ export default function App() {
           ))}
         </nav>
 
-        <button onClick={addProject} className="mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl px-4 py-2 text-sm font-semibold shadow-lg shadow-purple-900/30">
+        <button onClick={handleAddProject} className="mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl px-4 py-2 text-sm font-semibold shadow-lg shadow-purple-900/30">
           + Add Project
         </button>
 

@@ -64,6 +64,24 @@ This guide will help you deploy the MyWork Dashboard to Vercel and fix common pr
 - `GET /api/screenshot` - Generate screenshot
 - `GET /api/health` - Health check
 
+## Local Development
+
+1. **Frontend Development Server**:
+   ```bash
+   npm start
+   # Runs on http://localhost:5173
+   # Proxy configured to forward /api requests to localhost:3002
+   ```
+
+2. **API Server**:
+   ```bash
+   cd api
+   PORT=3002 node index.js
+   # Runs on http://localhost:3002
+   ```
+
+**Important**: The Vite proxy in `vite.config.js` is configured to forward API requests from `http://localhost:5173/api/*` to `http://localhost:3002/api/*`, ensuring seamless local development that matches production behavior.
+
 ### Troubleshooting
 
 1. **API calls failing**: Check browser console for CORS errors
