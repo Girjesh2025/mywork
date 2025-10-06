@@ -932,6 +932,7 @@ apiRouter.get('/screenshot', async (req, res) => {
     if (result.success) {
       res.setHeader('Content-Type', `image/${result.format}`);
       res.sendFile(result.filePath);
+      return;
     } else {
       throw new Error(result.error);
     }
@@ -940,72 +941,130 @@ apiRouter.get('/screenshot', async (req, res) => {
     console.error('Full error object:', error);
     console.error('Stack trace:', error.stack);
 
+    // Enhanced fallback system - prioritize Open Graph images
     try {
+      console.log('[Fallback] Fetching HTML for Open Graph image...');
       const html = await fetchHtml(url);
       const ogImage = getOgImage(html, url);
 
       if (ogImage) {
+        console.log(`[Fallback] Found Open Graph image: ${ogImage}`);
         try {
-          const response = await axios.get(ogImage, { responseType: 'arraybuffer' });
-          const optimizedImage = await sharp(response.data)
-            .resize({ width: 400, height: 300, fit: 'cover' })
-            .webp({ quality: 80 })
-            .toBuffer();
+          const response = await axios.get(ogImage, { 
+            responseType: 'arraybuffer',
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          
+          if (response.data && response.data.byteLength > 1000) {
+            console.log('[Fallback] Processing Open Graph image...');
+            // Process the Open Graph image to fit the requested dimensions
+            const processedImage = await sharp(response.data)
+              .resize(parseInt(width), parseInt(height), { 
+                fit: 'cover', 
+                position: 'center',
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+              })
+              .png({ quality: 90 })
+              .toBuffer();
 
-          const fallbackPath = join(screenshotsDir, `${key}-fallback.webp`);
-          fs.writeFileSync(fallbackPath, optimizedImage);
-          cacheManager.set(key, fallbackPath, 'webp');
+            const webpImage = await sharp(processedImage)
+              .webp({ quality: 85, effort: 4 })
+              .toBuffer();
 
-          res.setHeader('Content-Type', 'image/webp');
-          res.send(optimizedImage);
-          return;
-        } catch (axiosError) {
-          console.error('Error fetching or processing OG image:', axiosError.message);
+            // Save to cache
+            const webpPath = join(screenshotsDir, `${key}.webp`);
+            fs.writeFileSync(webpPath, webpImage);
+            cacheManager.set(key, webpPath, 'webp');
+
+            console.log('[Fallback] Open Graph image processed and cached successfully');
+            res.setHeader('Content-Type', 'image/webp');
+            res.sendFile(webpPath);
+            return;
+          }
+        } catch (ogError) {
+          console.error('[Fallback] Error processing Open Graph image:', ogError.message);
         }
       }
 
+      // Try favicon as secondary fallback
+      console.log('[Fallback] Trying favicon...');
       const favicon = getFavicon(html, url);
       if (favicon) {
+        console.log(`[Fallback] Found favicon: ${favicon}`);
         try {
-          const response = await axios.get(favicon, { responseType: 'arraybuffer' });
-          res.setHeader('Content-Type', response.headers['content-type']);
-          res.send(response.data);
-          return;
-        } catch (axiosError) {
-          console.error('Error fetching favicon:', axiosError.message);
+          const response = await axios.get(favicon, { 
+            responseType: 'arraybuffer',
+            timeout: 5000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          
+          if (response.data && response.data.byteLength > 100) {
+            console.log('[Fallback] Processing favicon...');
+            // Create a centered favicon on a white background
+            const faviconSize = Math.min(parseInt(width), parseInt(height)) / 3;
+            const processedFavicon = await sharp(response.data)
+              .resize(Math.floor(faviconSize), Math.floor(faviconSize), { fit: 'inside' })
+              .png()
+              .toBuffer();
+
+            // Create a white background and center the favicon
+            const finalImage = await sharp({
+              create: {
+                width: parseInt(width),
+                height: parseInt(height),
+                channels: 4,
+                background: { r: 255, g: 255, b: 255, alpha: 1 }
+              }
+            })
+            .composite([{
+              input: processedFavicon,
+              gravity: 'center'
+            }])
+            .png({ quality: 90 })
+            .toBuffer();
+
+            const webpImage = await sharp(finalImage)
+              .webp({ quality: 85, effort: 4 })
+              .toBuffer();
+
+            // Save to cache
+            const webpPath = join(screenshotsDir, `${key}.webp`);
+            fs.writeFileSync(webpPath, webpImage);
+            cacheManager.set(key, webpPath, 'webp');
+
+            console.log('[Fallback] Favicon processed and cached successfully');
+            res.setHeader('Content-Type', 'image/webp');
+            res.sendFile(webpPath);
+            return;
+          }
+        } catch (faviconError) {
+          console.error('[Fallback] Error processing favicon:', faviconError.message);
         }
       }
-
-      const placeholderSvg = `
-        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
-            </linearGradient>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grad)" />
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
-            Preview not available
-          </text>
-        </svg>
-      `;
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.status(200).send(placeholderSvg);
-
-    } catch (fetchError) {
-      console.error('Error fetching HTML for fallback:', fetchError.message);
-      const errorSvg = `
-        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="#f8d7da" />
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#721c24">
-            Error: Could not fetch URL
-          </text>
-        </svg>
-      `;
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.status(500).send(errorSvg);
+    } catch (fallbackError) {
+      console.error('[Fallback] Error in fallback system:', fallbackError.message);
     }
+
+    // Final fallback - SVG placeholder
+    console.log('[Fallback] Using SVG placeholder');
+    const domain = new URL(url).hostname;
+    const svgPlaceholder = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100%" height="100%" fill="#f8f9fa"/>
+      <text x="50%" y="40%" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6c757d">
+        Preview not available
+      </text>
+      <text x="50%" y="60%" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#adb5bd">
+        ${domain}
+      </text>
+    </svg>`;
+
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.send(svgPlaceholder);
   }
 });
 
