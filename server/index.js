@@ -491,11 +491,11 @@ apiRouter.delete('/projects/:id', async (req, res) => {
       if (error.code === 'PGRST116') {
         return res.status(404).json({ error: 'Project not found' });
       }
-      res.status(500).json({ error: 'Failed to delete project from database' });
-    } else {
-      console.log(`[Delete Project] Successfully deleted project from Supabase: ${projectId}`);
-      res.json({ message: 'Project deleted successfully' });
+      return res.status(500).json({ error: 'Failed to delete project from database' });
     }
+    
+    console.log(`[Delete Project] Successfully deleted project from Supabase: ${projectId}`);
+    res.json({ message: 'Project deleted successfully', deletedProject });
   } catch (error) {
     console.error('[Delete Project] Error deleting project:', error);
     res.status(500).json({ error: 'Failed to delete project' });
