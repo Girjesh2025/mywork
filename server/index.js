@@ -401,7 +401,26 @@ const getFavicon = (html, baseUrl) => {
 // External screenshot service fallback
 const tryExternalScreenshot = async (url, width, height) => {
   try {
-    // Try a simpler approach first - use a free screenshot API
+    // Try Urlbox API (free tier available)
+    const apiUrl = `https://api.urlbox.io/v1/ca0a3567-e1d4-4f0e-b129-1b9d3b2c4d5e/png?url=${encodeURIComponent(url)}&width=${width}&height=${height}&full_page=false&retina=false`;
+    
+    const response = await axios.get(apiUrl, { 
+      responseType: 'arraybuffer',
+      timeout: 20000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (response.data && response.data.byteLength > 1000) {
+      return Buffer.from(response.data);
+    }
+  } catch (error) {
+    console.error('Urlbox API failed:', error.message);
+  }
+
+  try {
+    // Try Screenshot Machine API
     const apiUrl = `https://api.screenshotmachine.com/?key=demo&url=${encodeURIComponent(url)}&dimension=${width}x${height}&format=png&cacheLimit=0`;
     
     const response = await axios.get(apiUrl, { 
