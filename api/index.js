@@ -216,35 +216,10 @@ const normalizeUrl = (url) => {
 };
 
 const generatePlaceholderSvg = (url, width, height) => {
-  // Extract domain name for display
-  const domain = url.split('/')[0];
-  
-  // Generate a consistent color based on the domain
-  const hash = domain.split('').reduce((acc, char) => {
-    return char.charCodeAt(0) + ((acc << 5) - acc);
-  }, 0);
-  
-  const hue = Math.abs(hash % 360);
-  const color = `hsl(${hue}, 70%, 60%)`;
-  const darkColor = `hsl(${hue}, 70%, 40%)`;
-  
-  // Create a more visually appealing SVG with better contrast
+  // Create a simple dark SVG without any text or placeholders
   return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
       <rect width="${width}" height="${height}" fill="#2a2a2a" />
-      <rect x="10" y="10" width="${parseInt(width) - 20}" height="${parseInt(height) - 20}" rx="5" fill="url(#grad)" />
-      <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${color};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${darkColor};stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(parseInt(width), parseInt(height)) / 12}px" fill="#ffffff" font-weight="bold">
-        ${domain}
-      </text>
-      <text x="50%" y="65%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(parseInt(width), parseInt(height)) / 18}px" fill="#ffffff">
-        Preview not available
-      </text>
     </svg>
   `;
 };

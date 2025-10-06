@@ -400,68 +400,8 @@ const getFavicon = (html, baseUrl) => {
 
 // External screenshot service fallback
 const tryExternalScreenshot = async (url, width, height) => {
-  try {
-    // Try Urlbox API (free tier available)
-    const apiUrl = `https://api.urlbox.io/v1/ca0a3567-e1d4-4f0e-b129-1b9d3b2c4d5e/png?url=${encodeURIComponent(url)}&width=${width}&height=${height}&full_page=false&retina=false`;
-    
-    const response = await axios.get(apiUrl, { 
-      responseType: 'arraybuffer',
-      timeout: 20000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    if (response.data && response.data.byteLength > 1000) {
-      return Buffer.from(response.data);
-    }
-  } catch (error) {
-    console.error('Urlbox API failed:', error.message);
-  }
-
-  try {
-    // Try Screenshot Machine API
-    const apiUrl = `https://api.screenshotmachine.com/?key=demo&url=${encodeURIComponent(url)}&dimension=${width}x${height}&format=png&cacheLimit=0`;
-    
-    const response = await axios.get(apiUrl, { 
-      responseType: 'arraybuffer',
-      timeout: 15000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    if (response.data && response.data.byteLength > 1000) {
-      return Buffer.from(response.data);
-    }
-  } catch (error) {
-    console.error('Screenshot Machine API failed:', error.message);
-  }
-
-  try {
-    // Fallback to htmlcsstoimage.com API (requires API keys)
-    const response = await axios.post('https://hcti.io/v1/image', {
-      html: `<html><head><meta charset="utf-8"><style>body{margin:0;padding:0;}</style></head><body><iframe src="${url}" width="${width}" height="${height}" frameborder="0"></iframe></body></html>`,
-      css: '',
-      width: parseInt(width),
-      height: parseInt(height),
-      device_scale_factor: 1
-    }, {
-      auth: {
-        username: process.env.HCTI_USER_ID || '',
-        password: process.env.HCTI_API_KEY || ''
-      },
-      timeout: 15000
-    });
-
-    if (response.data && response.data.url) {
-      const imageResponse = await axios.get(response.data.url, { responseType: 'arraybuffer' });
-      return Buffer.from(imageResponse.data);
-    }
-  } catch (error) {
-    console.error('HCTI API failed:', error.message);
-  }
-  
+  // External screenshot services disabled to prevent "Invalid key" placeholder images
+  console.log('External screenshot services disabled');
   return null;
 };
 
@@ -860,16 +800,7 @@ apiRouter.post('/screenshot', async (req, res) => {
 
       const placeholderSvg = `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
-            </linearGradient>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grad)" />
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
-            Preview not available
-          </text>
+          <rect width="100%" height="100%" fill="#1f2937" />
         </svg>
       `;
       res.setHeader('Content-Type', 'image/svg+xml');
@@ -879,16 +810,7 @@ apiRouter.post('/screenshot', async (req, res) => {
       console.error('Error fetching HTML for fallback:', fetchError.message);
       const placeholderSvg = `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#f0f0f0;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
-            </linearGradient>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#grad)" />
-          <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#999">
-            Preview not available
-          </text>
+          <rect width="100%" height="100%" fill="#1f2937" />
         </svg>
       `;
       res.setHeader('Content-Type', 'image/svg+xml');

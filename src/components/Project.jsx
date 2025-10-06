@@ -1,126 +1,38 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Card, Progress } from './ui';
 import { CopyIcon } from './Icons';
 import { niceDate, badgeFor, urlOfSite } from '../utils/helpers';
 
 function PreviewImage({ url, status, width = 480, height = 270 }) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isInView, setIsInView] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
   const imgRef = useRef(null);
-  const observerRef = useRef(null);
 
   // Get API base URL from environment or use relative URL
   // In production, we use the absolute URL from .env.production
   // In development, we use a relative URL that gets proxied through Vite
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-  // Add cache busting parameter to prevent stale images
-  const apiUrl = `${API_BASE_URL}/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}&t=${new Date().getTime().toString().slice(0, -4)}`;
-
-  // Intersection Observer for lazy loading
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsInView(true);
-          observerRef.current?.disconnect();
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (imgRef.current) {
-      observerRef.current.observe(imgRef.current);
-    }
-
-    return () => {
-      observerRef.current?.disconnect();
-    };
-  }, []);
-
-  const handleImageLoad = () => {
-    setIsLoaded(true);
-    setHasError(false);
-  };
-
-  const handleImageError = () => {
-    setHasError(true);
-    setIsLoaded(true); // Stop showing loading spinner
-  };
-
-  const handleRetry = () => {
-    if (retryCount < 2) {
-      setRetryCount(prev => prev + 1);
-      setHasError(false);
-      setIsLoaded(false);
-      // Force image reload by adding timestamp
-      const img = imgRef.current?.querySelector('img');
-      if (img) {
-        img.src = `${apiUrl}&retry=${Date.now()}`;
-      }
-    }
-  };
+  const apiUrl = `${API_BASE_URL}/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}`;
 
   return (
     <div 
       ref={imgRef}
-      className="relative aspect-[16/9] rounded-xl overflow-hidden border border-white/10 mb-3 bg-gray-800"
+      className="relative aspect-[16/9] rounded-xl overflow-hidden border border-white/10 mb-3"
     >
-      {/* Loading placeholder */}
-      {!isLoaded && !hasError && (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-            <p className="text-xs text-gray-400">Loading preview...</p>
-          </div>
-        </div>
-      )}
-
-      {/* Error state */}
-      {hasError && (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-red-900/20 to-gray-900">
-          <div className="text-center p-4">
-            <div className="text-2xl mb-2">⚠️</div>
-            <p className="text-xs text-gray-400 mb-2">Preview unavailable</p>
-            {retryCount < 2 && (
-              <button 
-                onClick={handleRetry}
-                className="text-xs text-blue-400 hover:text-blue-300 underline"
-              >
-                Retry ({2 - retryCount} left)
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Main image - SVG or actual screenshot */}
-      {isInView && (
-        <img
-          src={`${apiUrl}${retryCount > 0 ? `&retry=${retryCount}` : ''}`}
-          alt={`${url} preview`}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            isLoaded && !hasError ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-          crossOrigin="anonymous"
-        />
-      )}
+      <img
+        src={apiUrl}
+        alt={`${url} preview`}
+        className="w-full h-full object-cover"
+      />
 
       {/* Status indicator overlay */}
-      {isLoaded && !hasError && (
-        <div className="absolute top-2 right-2">
-          <div className={`px-2 py-1 rounded text-xs font-medium ${
-            status === 'Live' ? 'bg-green-500/80 text-white' :
-            status === 'Development' ? 'bg-yellow-500/80 text-white' :
-            'bg-gray-500/80 text-white'
-          }`}>
-            {status}
-          </div>
+      <div className="absolute top-2 right-2">
+        <div className={`px-2 py-1 rounded text-xs font-medium ${
+          status === 'Live' ? 'bg-green-500/80 text-white' :
+          status === 'Development' ? 'bg-yellow-500/80 text-white' :
+          'bg-gray-500/80 text-white'
+        }`}>
+          {status}
         </div>
-      )}
+      </div>
     </div>
   );
 }
