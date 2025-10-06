@@ -6,13 +6,13 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Import appropriate puppeteer version based on environment
 let puppeteer;
-let chrome;
+let chromium;
 
 if (isDevelopment) {
   puppeteer = require('puppeteer');
 } else {
   puppeteer = require('puppeteer-core');
-  chrome = require('chrome-aws-lambda');
+  chromium = require('@sparticuz/chromium');
 }
 
 // Function to get browser configuration
@@ -30,11 +30,17 @@ const getBrowserConfig = async () => {
       ]
     };
   } else {
-    // Production: use chrome-aws-lambda
+    // Production: use @sparticuz/chromium
     return {
-      args: chrome.args,
-      executablePath: await chrome.executablePath,
-      headless: chrome.headless
+      args: [
+        ...chromium.args,
+        '--hide-scrollbars',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+      ],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless
     };
   }
 };
@@ -337,18 +343,26 @@ const fetchHtml = async (url) => {
 
 const getOgImage = (html, baseUrl) => {
   const $ = cheerio.load(html);
-  const ogImage = $('meta[property="og:image"]').attr('content');
+  const ogImage = $('meta[property="og:image"]').attr('content') || 
+                  $('meta[name="twitter:image"]').attr('content') ||
+                  $('meta[name="twitter:image:src"]').attr('content') ||
+                  $('meta[property="og:image:url"]').attr('content');
+  
   if (ogImage) {
-    return new URL(ogImage, baseUrl).href;
+    return ogImage.startsWith('http') ? ogImage : new URL(ogImage, baseUrl).href;
   }
   return null;
 };
 
 const getFavicon = (html, baseUrl) => {
   const $ = cheerio.load(html);
-  let favicon = $('link[rel="icon"]').attr('href') || $('link[rel="shortcut icon"]').attr('href');
+  let favicon = $('link[rel="icon"]').attr('href') || 
+                $('link[rel="shortcut icon"]').attr('href') ||
+                $('link[rel="apple-touch-icon"]').attr('href') ||
+                $('link[rel="apple-touch-icon-precomposed"]').attr('href');
+  
   if (favicon) {
-    return new URL(favicon, baseUrl).href;
+    return favicon.startsWith('http') ? favicon : new URL(favicon, baseUrl).href;
   }
   // Fallback for default favicon location
   return new URL('/favicon.ico', baseUrl).href;

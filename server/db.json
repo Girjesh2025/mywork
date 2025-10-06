@@ -2,15 +2,15 @@
   "projects": [
     {
       "id": 3,
-      "name": "EasyPDFIndia",
+      "name": "EasyPDFIndia Test Updated",
       "site": "www.easypdfindia.com/",
       "status": "Live",
-      "progress": 100,
+      "progress": 96,
       "tags": [
         "Portfolio",
         "Design"
       ],
-      "updatedAt": "2025-09-02"
+      "updatedAt": "2025-10-06"
     },
     {
       "id": 4,
@@ -26,14 +26,14 @@
     },
     {
       "id": 7,
-      "name": "kids mathes ",
+      "name": "kids mathes 23",
       "site": "kidsmathe.netlify.app/",
       "status": "Live",
-      "progress": 0,
+      "progress": 100,
       "tags": [
         "New"
       ],
-      "updatedAt": "2025-09-02"
+      "updatedAt": "2025-10-06"
     },
     {
       "id": 8,
@@ -84,11 +84,11 @@
       "name": "handwriting convertor ",
       "site": "handwriting-converter-delta.vercel.app/",
       "status": "Live",
-      "progress": 0,
+      "progress": 90,
       "tags": [
         "New"
       ],
-      "updatedAt": "2025-09-03"
+      "updatedAt": "2025-10-06"
     }
   ],
   "tasks": [
