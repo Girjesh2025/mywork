@@ -111,6 +111,36 @@ class ScreenshotQueue {
   async executeJob(job) {
     const { url, width, height, key, format, status } = job;
     console.log(`[SQ] Starting job for ${url}`);
+    
+    // First, try external screenshot service
+    console.log('[SQ] Trying external screenshot service...');
+    try {
+      const externalScreenshot = await tryExternalScreenshot(url, width, height);
+      if (externalScreenshot) {
+        console.log('[SQ] External screenshot service succeeded.');
+        
+        // Process the image with Sharp
+        const resizedImage = await sharp(externalScreenshot)
+          .resize(parseInt(width), parseInt(height), { fit: 'cover', position: 'top' })
+          .png({ quality: 90 })
+          .toBuffer();
+
+        const webpImage = await sharp(resizedImage)
+          .webp({ quality: 85, effort: 4 })
+          .toBuffer();
+        
+        // Save the image to cache
+        const webpPath = join(screenshotsDir, `${key}.webp`);
+        fs.writeFileSync(webpPath, webpImage);
+        cacheManager.set(key, webpPath, 'webp');
+        
+        return { success: true, filePath: webpPath, format: 'webp' };
+      }
+    } catch (error) {
+      console.error('[SQ] External screenshot service failed:', error.message);
+    }
+    
+    // Fallback to Puppeteer
     let browser;
     try {
       console.log('[SQ] Launching browser...');
@@ -371,7 +401,26 @@ const getFavicon = (html, baseUrl) => {
 // External screenshot service fallback
 const tryExternalScreenshot = async (url, width, height) => {
   try {
-    // Using htmlcsstoimage.com API (free tier available)
+    // Try a simpler approach first - use a free screenshot API
+    const apiUrl = `https://api.screenshotmachine.com/?key=demo&url=${encodeURIComponent(url)}&dimension=${width}x${height}&format=png&cacheLimit=0`;
+    
+    const response = await axios.get(apiUrl, { 
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+
+    if (response.data && response.data.byteLength > 1000) {
+      return Buffer.from(response.data);
+    }
+  } catch (error) {
+    console.error('Screenshot Machine API failed:', error.message);
+  }
+
+  try {
+    // Fallback to htmlcsstoimage.com API (requires API keys)
     const response = await axios.post('https://hcti.io/v1/image', {
       html: `<html><head><meta charset="utf-8"><style>body{margin:0;padding:0;}</style></head><body><iframe src="${url}" width="${width}" height="${height}" frameborder="0"></iframe></body></html>`,
       css: '',
@@ -391,8 +440,9 @@ const tryExternalScreenshot = async (url, width, height) => {
       return Buffer.from(imageResponse.data);
     }
   } catch (error) {
-    console.error('External screenshot service failed:', error.message);
+    console.error('HCTI API failed:', error.message);
   }
+  
   return null;
 };
 
