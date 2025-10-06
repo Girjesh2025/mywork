@@ -976,13 +976,7 @@ apiRouter.get('/screenshot', async (req, res) => {
     console.log('[Fallback] Using SVG placeholder');
     const domain = new URL(url).hostname;
     const svgPlaceholder = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="#f8f9fa"/>
-      <text x="50%" y="40%" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6c757d">
-        Preview not available
-      </text>
-      <text x="50%" y="60%" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#adb5bd">
-        ${domain}
-      </text>
+      <rect width="100%" height="100%" fill="#2a2a2a"/>
     </svg>`;
 
     res.setHeader('Content-Type', 'image/svg+xml');
