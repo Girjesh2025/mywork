@@ -1,10 +1,12 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Card, Progress } from './ui';
 import { CopyIcon } from './Icons';
 import { niceDate, badgeFor, urlOfSite } from '../utils/helpers';
 
 function PreviewImage({ url, status, width = 480, height = 270 }) {
   const imgRef = useRef(null);
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   // Get API base URL from environment or use relative URL
   // In production, we use the absolute URL from .env.production
@@ -12,16 +14,40 @@ function PreviewImage({ url, status, width = 480, height = 270 }) {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const apiUrl = `${API_BASE_URL}/api/screenshot?url=${encodeURIComponent(url)}&width=${width}&height=${height}`;
 
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoaded(false);
+  };
+
+  const handleImageLoad = () => {
+    setImageError(false);
+    setImageLoaded(true);
+  };
+
   return (
     <div 
       ref={imgRef}
       className="relative aspect-[16/9] rounded-xl overflow-hidden border border-white/10 mb-3"
     >
-      <img
-        src={apiUrl}
-        alt={`${url} preview`}
-        className="w-full h-full object-cover"
-      />
+      {!imageError ? (
+        <img
+          src={apiUrl}
+          alt={`${url} preview`}
+          className="w-full h-full object-cover"
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+        />
+      ) : (
+        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+          <div className="text-center text-gray-400">
+            <div className="w-12 h-12 mx-auto mb-2 opacity-50">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status indicator overlay */}
       <div className="absolute top-2 right-2">
