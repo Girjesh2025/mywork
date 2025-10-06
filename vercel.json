@@ -1,6 +1,11 @@
 {
   "version": 2,
   "name": "mywork-portfolio-2025",
+  "functions": {
+    "server/index.js": {
+      "maxDuration": 30
+    }
+  },
   "builds": [
     {
       "src": "server/index.js",
