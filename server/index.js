@@ -368,6 +368,34 @@ const getFavicon = (html, baseUrl) => {
   return new URL('/favicon.ico', baseUrl).href;
 };
 
+// External screenshot service fallback
+const tryExternalScreenshot = async (url, width, height) => {
+  try {
+    // Using htmlcsstoimage.com API (free tier available)
+    const response = await axios.post('https://hcti.io/v1/image', {
+      html: `<html><head><meta charset="utf-8"><style>body{margin:0;padding:0;}</style></head><body><iframe src="${url}" width="${width}" height="${height}" frameborder="0"></iframe></body></html>`,
+      css: '',
+      width: parseInt(width),
+      height: parseInt(height),
+      device_scale_factor: 1
+    }, {
+      auth: {
+        username: process.env.HCTI_USER_ID || '',
+        password: process.env.HCTI_API_KEY || ''
+      },
+      timeout: 15000
+    });
+
+    if (response.data && response.data.url) {
+      const imageResponse = await axios.get(response.data.url, { responseType: 'arraybuffer' });
+      return Buffer.from(imageResponse.data);
+    }
+  } catch (error) {
+    console.error('External screenshot service failed:', error.message);
+  }
+  return null;
+};
+
 const normalizeUrl = (url) => {
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return `https://${url}`;
@@ -702,6 +730,28 @@ apiRouter.post('/screenshot', async (req, res) => {
     console.error('Error taking screenshot:', error.message);
     console.error('Full error object:', error);
     console.error('Stack trace:', error.stack);
+
+    // Try external screenshot service first
+    console.log('Trying external screenshot service...');
+    const externalScreenshot = await tryExternalScreenshot(url, width, height);
+    if (externalScreenshot) {
+      try {
+        const optimizedImage = await sharp(externalScreenshot)
+          .resize({ width: parseInt(width), height: parseInt(height), fit: 'cover' })
+          .webp({ quality: 80 })
+          .toBuffer();
+
+        const fallbackPath = join(screenshotsDir, `${key}-external.webp`);
+        fs.writeFileSync(fallbackPath, optimizedImage);
+        cacheManager.set(key, fallbackPath, 'webp');
+
+        res.setHeader('Content-Type', 'image/webp');
+        res.send(optimizedImage);
+        return;
+      } catch (processError) {
+        console.error('Error processing external screenshot:', processError.message);
+      }
+    }
 
     try {
       const html = await fetchHtml(url);
