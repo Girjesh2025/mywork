@@ -25,13 +25,17 @@ const setCorsHeaders = (res) => {
 
 // Import appropriate puppeteer version based on environment
 let puppeteer;
-let chrome;
+let chromium;
 
 if (isDevelopment || !isServerless) {
   puppeteer = require('puppeteer');
 } else {
   puppeteer = require('puppeteer-core');
-  chrome = require('chrome-aws-lambda');
+  try {
+    chromium = require('@sparticuz/chromium');
+  } catch (error) {
+    console.error('Failed to load @sparticuz/chromium:', error);
+  }
 }
 
 // Function to get browser configuration
@@ -47,27 +51,31 @@ const getBrowserConfig = async () => {
         '--disable-gpu'
       ]
     };
-  } else {
-    // Check if we're in a serverless environment (Vercel/AWS Lambda)
-    if (isServerless && chrome) {
-      return {
-        args: chrome.args,
-        executablePath: await chrome.executablePath,
-        headless: chrome.headless
-      };
-    } else {
-      // Local production mode - use bundled Chromium
-      console.log('Using bundled Chromium for local production');
-      return {
-        headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu'
-        ]
-      };
+  } else if (isServerless) {
+    // Serverless environment (Vercel/AWS Lambda) - use @sparticuz/chromium
+    console.log('Using @sparticuz/chromium for serverless environment');
+    if (!chromium) {
+      throw new Error('@sparticuz/chromium not available in serverless environment');
     }
+    return {
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+      ignoreHTTPSErrors: true
+    };
+  } else {
+    // Local production mode - use bundled Chromium
+    console.log('Using bundled Chromium for local production');
+    return {
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    };
   }
 };
 
