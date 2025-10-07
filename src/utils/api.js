@@ -1,9 +1,7 @@
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-// API utility function
 export const apiCall = async (endpoint, options = {}) => {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const url = `${BASE_URL}${endpoint}`;
   
   const defaultOptions = {
     headers: {
@@ -34,7 +32,6 @@ export const apiCall = async (endpoint, options = {}) => {
   }
 };
 
-// Specific API functions
 export const fetchProjects = () => apiCall('/api/projects');
 
 export const addProject = (project) => apiCall('/api/projects', {
@@ -47,8 +44,9 @@ export const updateProject = (id, updates) => apiCall(`/api/projects/${id}`, {
   body: JSON.stringify(updates),
 });
 
-export const deleteProject = (id) => apiCall(`/api/projects/${id}`, {
-  method: 'DELETE',
-});
+export const deleteProject = (id) => apiCall(`/api/projects/${id}`, { method: 'DELETE' });
 
-export const fetchTasks = () => apiCall('/api/tasks');
+export const getTasks = () => apiCall('/api/tasks');
+export const addTask = (task) => apiCall('/api/tasks', { method: 'POST', body: JSON.stringify(task) });
+export const updateTask = (id, task) => apiCall(`/api/tasks/${id}`, { method: 'PUT', body: JSON.stringify(task) });
+export const deleteTask = (id) => apiCall(`/api/tasks/${id}`, { method: 'DELETE' });

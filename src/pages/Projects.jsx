@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Select, Input } from '../components/ui';
 import { ProjectCard } from '../components/Project';
+import { ProjectPreview } from '../components/ProjectPreview';
 import { normalizeSite, clampNum, today } from '../utils/helpers';
 import { updateProject, deleteProject as deleteProjectAPI, addProject } from '../utils/api';
 import { useNotification } from '../components/Notification';
@@ -107,15 +108,25 @@ export default function ProjectsPage({ projects, setProjects, query }) {
       {showCreateForm && (
         <div className="mt-4 p-4 rounded-xl bg-white/10">
           <h3 className="font-semibold mb-2">Create New Project</h3>
-          <div className="grid md:grid-cols-2 gap-3">
-            <Input label="Name" value={createData.name} onChange={(v) => setCreateData({ ...createData, name: v })} />
-            <Input label="Site" value={createData.site} onChange={(v) => setCreateData({ ...createData, site: v })} />
-            <Select value={createData.status} onChange={(v) => setCreateData({ ...createData, status: v })} options={["Active", "Live", "Planned", "On Hold"]} />
-            <Input label="Progress %" type="number" min={0} max={100} value={createData.progress} onChange={(v) => setCreateData({ ...createData, progress: Number(v) })} />
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={createProject} className="px-4 py-2 bg-emerald-600 rounded-xl">Create</button>
-            <button onClick={() => { setShowCreateForm(false); setCreateData({ name: "", site: "", status: "Planned", progress: 0, tags: [] }); }} className="px-4 py-2 bg-rose-600 rounded-xl">Cancel</button>
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Form Section */}
+            <div>
+              <div className="grid gap-3">
+                <Input label="Name" value={createData.name} onChange={(v) => setCreateData({ ...createData, name: v })} />
+                <Input label="Site" value={createData.site} onChange={(v) => setCreateData({ ...createData, site: v })} />
+                <Select value={createData.status} onChange={(v) => setCreateData({ ...createData, status: v })} options={["Active", "Live", "Planned", "On Hold"]} />
+                <Input label="Progress %" type="number" min={0} max={100} value={createData.progress} onChange={(v) => setCreateData({ ...createData, progress: Number(v) })} />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={createProject} className="px-4 py-2 bg-emerald-600 rounded-xl">Create</button>
+                <button onClick={() => { setShowCreateForm(false); setCreateData({ name: "", site: "", status: "Planned", progress: 0, tags: [] }); }} className="px-4 py-2 bg-rose-600 rounded-xl">Cancel</button>
+              </div>
+            </div>
+            
+            {/* Live Preview Section */}
+            <div>
+              <ProjectPreview projectData={createData} />
+            </div>
           </div>
         </div>
       )}
@@ -123,11 +134,19 @@ export default function ProjectsPage({ projects, setProjects, query }) {
       {editingId && (
         <div className="mt-4 p-4 rounded-xl bg-white/10">
           <h3 className="font-semibold mb-2">Edit Project</h3>
-          <div className="grid md:grid-cols-2 gap-3">
-            <Input label="Name" value={editData.name} onChange={(v) => setEditData({ ...editData, name: v })} />
-            <Input label="Site" value={editData.site} onChange={(v) => setEditData({ ...editData, site: v })} />
-            <Select value={editData.status} onChange={(v) => setEditData({ ...editData, status: v })} options={["Active", "Live", "Planned", "On Hold"]} />
-            <Input label="Progress %" type="number" min={0} max={100} value={editData.progress} onChange={(v) => setEditData({ ...editData, progress: Number(v) })} />
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <Input label="Name" value={editData.name} onChange={(v) => setEditData({ ...editData, name: v })} />
+              <Input label="Site" value={editData.site} onChange={(v) => setEditData({ ...editData, site: v })} />
+              <Select value={editData.status} onChange={(v) => setEditData({ ...editData, status: v })} options={["Active", "Live", "Planned", "On Hold"]} />
+              <Input label="Progress %" type="number" min={0} max={100} value={editData.progress} onChange={(v) => setEditData({ ...editData, progress: Number(v) })} />
+            </div>
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm text-white/70">Live Preview</h4>
+              <ProjectPreview 
+                projectData={editData}
+              />
+            </div>
           </div>
           <div className="mt-3 flex gap-2">
             <button onClick={saveEdit} className="px-4 py-2 bg-emerald-600 rounded-xl">Save</button>

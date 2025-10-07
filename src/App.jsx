@@ -17,9 +17,16 @@ export default function App() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
+    console.log('Fetching projects from API...');
     fetchProjects()
-      .then(data => setProjects(data))
-      .catch(error => console.error("Failed to fetch projects:", error));
+      .then(data => {
+        console.log('Projects received from API:', data);
+        console.log('Live projects:', data.filter(p => p.status === 'Live'));
+        setProjects(data);
+      })
+      .catch(error => {
+        console.error("Failed to fetch projects:", error);
+      });
   }, []);
 
   async function handleAddProject() {

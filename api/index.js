@@ -1,3 +1,6 @@
+// Load environment variables from parent directory
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
 const express = require('express');
 const cors = require('cors');
 const { join } = require('path');
@@ -6,6 +9,7 @@ const crypto = require('crypto');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const sharp = require('sharp');
+const { createClient } = require('@supabase/supabase-js');
 
 // Check if we're in development mode
 const isDevelopment = process.env.NODE_ENV !== 'production';
@@ -19,7 +23,9 @@ const setCorsHeaders = (res) => {
   res.set({
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Cross-Origin-Resource-Policy': 'cross-origin',
+    'Cross-Origin-Embedder-Policy': 'unsafe-none'
   });
 };
 
@@ -80,127 +86,39 @@ const getBrowserConfig = async () => {
   }
 };
 
-// In-memory database
-const db = {
-  projects: [
-    {
-      "id": 1,
-      "name": "TradeJinni",
-      "site": "tradejinni.com/",
-      "status": "Live",
-      "progress": 100,
-      "tags": ["E‑commerce", "Design"],
-      "updatedAt": "2025-08-22"
-    },
-    {
-      "id": 2,
-      "name": "Girjesh Gupta",
-      "site": "girjeshgupta.com/",
-      "status": "Live",
-      "progress": 100,
-      "tags": ["Portfolio", "Design"],
-      "updatedAt": "2025-08-22"
-    },
-    {
-      "id": 3,
-      "name": "EasyPDFIndia",
-      "site": "www.easypdfindia.com/",
-      "status": "Live",
-      "progress": 100,
-      "tags": ["Portfolio", "Design"],
-      "updatedAt": "2025-09-02"
-    },
-    {
-      "id": 4,
-      "name": "SmartCalculator ",
-      "site": "yourcalculator.in/",
-      "status": "Live",
-      "progress": 100,
-      "tags": ["E‑commerce", "Design"],
-      "updatedAt": "2025-09-02"
-    },
-    {
-      "id": 7,
-      "name": "kids mathes ",
-      "site": "kidsmathe.netlify.app/",
-      "status": "Live",
-      "progress": 0,
-      "tags": ["New"],
-      "updatedAt": "2025-09-02"
-    },
-    {
-      "id": 8,
-      "name": "oneclickpdf",
-      "site": "www.oneclickpdf.info/",
-      "status": "Planned",
-      "progress": 0,
-      "tags": ["New"],
-      "updatedAt": "2025-09-02"
-    },
-    {
-      "id": 9,
-      "name": "lovelyinvoice",
-      "site": "receipt-revelry.vercel.app/",
-      "status": "Planned",
-      "progress": 0,
-      "tags": ["New"],
-      "updatedAt": "2025-09-02"
-    },
-    {
-      "id": 10,
-      "name": "Digitalshop",
-      "site": "digitalshop.in/",
-      "status": "Live",
-      "progress": 0,
-      "tags": ["New"],
-      "updatedAt": "2025-09-02"
-    },
-    {
-      "id": 11,
-      "name": "Daily quotes",
-      "site": "daily-quotes.vercel.app/",
-      "status": "Live",
-      "progress": 100,
-      "tags": ["New"],
-      "updatedAt": "2025-09-03"
-    },
-    {
-      "id": 12,
-      "name": "handwriting convertor ",
-      "site": "handwriting-converter-delta.vercel.app/",
-      "status": "Live",
-      "progress": 0,
-      "tags": ["New"],
-      "updatedAt": "2025-09-03"
-    }
-  ],
-  tasks: [
-    {
-      "id": 1,
-      "text": "Set up auth",
-      "due": "2025-08-22",
-      "done": false
-    },
-    {
-      "id": 2,
-      "text": "Write documentation",
-      "due": "2025-08-20",
-      "done": false
-    },
-    {
-      "id": 3,
-      "text": "Add email notifications",
-      "due": "2025-08-18",
-      "done": false
-    },
-    {
-      "id": 4,
-      "text": "Trade jinni 2025",
-      "due": "2025-08-26",
-      "done": true
-    }
-  ]
+// Initialize Supabase client
+let supabase = null;
+
+const initializeSupabase = () => {
+  if (supabase) return supabase;
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[Supabase] Missing environment variables:');
+    console.error(`SUPABASE_URL: ${supabaseUrl ? '✓' : '✗'}`);
+    console.error(`SUPABASE_SERVICE_ROLE_KEY: ${supabaseKey ? '✓' : '✗'}`);
+    return null;
+  }
+
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+    console.log('[Supabase] Client initialized successfully');
+    return supabase;
+  } catch (error) {
+    console.error('[Supabase] Initialization failed:', error.message);
+    return null;
+  }
 };
+
+// Initialize Supabase on startup
+initializeSupabase();
 
 const app = express();
 
@@ -250,68 +168,160 @@ const generatePlaceholderSvg = (url, width, height) => {
 
 
 // API Routes
-app.get('/projects', (req, res) => {
-  res.json(db.projects);
-});
+app.get('/api/projects', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database connection not available' });
+    }
 
-app.post('/projects', (req, res) => {
-  const { name, site, status = 'Live', progress = 0, tags = ['New'] } = req.body;
-  
-  if (!name || !site) {
-    return res.status(400).json({ error: 'Name and site are required' });
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('[Projects Route] Supabase error:', error);
+      return res.status(500).json({ error: 'Failed to fetch projects' });
+    }
+
+    res.json(projects);
+  } catch (error) {
+    console.error('[Projects Route] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  // Get the highest ID and increment
-  const maxId = Math.max(...db.projects.map(p => p.id), 0);
-  const nextId = maxId + 1;
-
-  const newProject = {
-    id: nextId,
-    name,
-    site,
-    status,
-    progress,
-    tags,
-    updatedAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-  };
-
-  db.projects.push(newProject);
-  res.status(201).json(newProject);
 });
 
-app.put('/projects/:id', (req, res) => {
-  const { id } = req.params;
-  const updates = req.body;
-  
-  const projectIndex = db.projects.findIndex(p => p.id === parseInt(id));
-  
-  if (projectIndex === -1) {
-    return res.status(404).json({ error: 'Project not found' });
+app.post('/api/projects', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database connection not available' });
+    }
+
+    const { name, site, status = 'Live', progress = 0, tags = ['New'] } = req.body;
+    
+    if (!name || !site) {
+      return res.status(400).json({ error: 'Name and site are required' });
+    }
+
+    // Prepare project data for Supabase
+    const projectData = {
+      name,
+      site,
+      status,
+      progress,
+      tags,
+      updated_at: new Date().toISOString().split('T')[0] // Format as YYYY-MM-DD
+    };
+
+    const { data: insertedProject, error } = await supabase
+      .from('projects')
+      .insert([projectData])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Add Project] Supabase error:', error);
+      return res.status(500).json({ error: 'Failed to add project' });
+    }
+
+    console.log(`[Add Project] Successfully added project to Supabase: ${insertedProject.name}`);
+    res.status(201).json(insertedProject);
+  } catch (error) {
+    console.error('[Add Project] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  db.projects[projectIndex] = { ...db.projects[projectIndex], ...updates };
-  res.json(db.projects[projectIndex]);
 });
 
-app.delete('/projects/:id', (req, res) => {
-  const { id } = req.params;
-  
-  const projectIndex = db.projects.findIndex(p => p.id === parseInt(id));
-  
-  if (projectIndex === -1) {
-    return res.status(404).json({ error: 'Project not found' });
+app.put('/api/projects/:id', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database connection not available' });
+    }
+
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Prepare update data for Supabase
+    const updateData = { ...updates };
+    
+    // Remove frontend-specific fields that don't exist in Supabase
+    delete updateData.updatedAt;
+    
+    // Set the correct updated_at field for Supabase
+    updateData.updated_at = new Date().toISOString().split('T')[0];
+
+    const { data: updatedProjectData, error } = await supabase
+      .from('projects')
+      .update(updateData)
+      .eq('id', parseInt(id))
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Update Project] Supabase error:', error);
+      return res.status(404).json({ error: 'Project not found or update failed' });
+    }
+
+    console.log(`[Update Project] Successfully updated project in Supabase: ${updatedProjectData.name}`);
+    res.json(updatedProjectData);
+  } catch (error) {
+    console.error('[Update Project] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  db.projects.splice(projectIndex, 1);
-  res.json({ message: 'Project deleted successfully' });
 });
 
-app.get('/tasks', (req, res) => {
-  res.json(db.tasks);
+app.delete('/api/projects/:id', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database connection not available' });
+    }
+
+    const { id } = req.params;
+    const projectId = parseInt(id);
+
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', projectId);
+
+    if (error) {
+      console.error('[Delete Project] Supabase error:', error);
+      return res.status(404).json({ error: 'Project not found or delete failed' });
+    }
+
+    console.log(`[Delete Project] Successfully deleted project from Supabase: ${projectId}`);
+    res.json({ message: 'Project deleted successfully' });
+  } catch (error) {
+    console.error('[Delete Project] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
-// Screenshot endpoint with serverless optimization
-app.get('/screenshot', async (req, res) => {
+app.get('/api/tasks', async (req, res) => {
+  const { data, error } = await supabase.from('tasks').select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/tasks', async (req, res) => {
+  const { data, error } = await supabase.from('tasks').insert([req.body]).select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data[0]);
+});
+
+app.put('/api/tasks/:id', async (req, res) => {
+  const { data, error } = await supabase.from('tasks').update(req.body).eq('id', req.params.id).select();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data[0]);
+});
+
+app.delete('/api/tasks/:id', async (req, res) => {
+    const { error } = await supabase.from('tasks').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ error: error.message });
+    res.status(204).send();
+});
+
+app.get('/api/screenshot', async (req, res) => {
   const { url, width = 480, height = 270, format = 'webp' } = req.query;
   
   // Set CORS headers for all responses
@@ -361,7 +371,9 @@ app.get('/screenshot', async (req, res) => {
     
     res.set({
       'Content-Type': `image/${format}`,
-      'Cache-Control': 'public, max-age=86400'
+      'Cache-Control': 'public, max-age=86400',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'Cross-Origin-Embedder-Policy': 'unsafe-none'
     });
     
     res.send(screenshot);
@@ -384,13 +396,13 @@ app.get('/screenshot', async (req, res) => {
 });
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Start server if not in Vercel environment
 if (require.main === module) {
-  const PORT = process.env.PORT || 3001;
+  const PORT = process.env.PORT || 3002;
   app.listen(PORT, () => {
     console.log(`API server running on http://localhost:${PORT}`);
   });

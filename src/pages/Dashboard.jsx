@@ -1,10 +1,20 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, TaskLine } from '../components/ui';
 import { StatTile, DonutChart } from '../components/Charts';
 import { ProjectCard } from '../components/Project';
 import { CubeIcon, LockIcon } from '../components/Icons';
+import { getTasks, addTask } from '../utils/api';
 
 export default function Dashboard({ projects, query }) {
+  const [tasks, setTasks] = useState([]);
+
+  useEffect(() => {
+    getTasks().then(setTasks);
+  }, []);
+
+  console.log('Dashboard received projects:', projects);
+  console.log('Projects length:', projects.length);
+  
   const filtered = useMemo(() => projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()) || p.site.toLowerCase().includes(query.toLowerCase())), [projects, query]);
 
   const stats = useMemo(() => {
@@ -15,6 +25,8 @@ export default function Dashboard({ projects, query }) {
       Planned: projects.filter((p) => p.status === "Planned").length,
       "On Hold": projects.filter((p) => p.status === "On Hold").length,
     };
+    console.log('Dashboard stats:', { total, byStatus });
+    console.log('Live projects in stats:', projects.filter((p) => p.status === "Live"));
     return { total, byStatus };
   }, [projects]);
 
@@ -24,6 +36,14 @@ export default function Dashboard({ projects, query }) {
     { name: "Planned", value: stats.byStatus["Planned"], color: "#f59e0b" },
     { name: "On Hold", value: stats.byStatus["On Hold"], color: "#f87171" },
   ];
+
+  const handleAddTask = async () => {
+    const label = prompt("Enter task label:");
+    if (label) {
+      const newTask = await addTask({ label, done: false });
+      setTasks([...tasks, newTask]);
+    }
+  };
 
   return (
     <section className="mt-6">
@@ -64,11 +84,11 @@ export default function Dashboard({ projects, query }) {
           <Card>
             <h3 className="text-lg font-semibold">Next Project</h3>
             <div className="mt-4 space-y-4 text-sm">
-              <TaskLine label="Set up auth" date="Aug 22, 2025" />
-              <TaskLine label="Write documentation" done />
-              <TaskLine label="Add email notifications" done />
+              {tasks.map((task) => (
+                <TaskLine key={task.id} label={task.label} date={task.date} done={task.done} />
+              ))}
               <div className="text-right">
-                <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold">Add</button>
+                <button onClick={handleAddTask} className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold">Add</button>
               </div>
             </div>
           </Card>
