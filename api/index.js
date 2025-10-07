@@ -57,10 +57,25 @@ const getBrowserConfig = async () => {
     if (!chromium) {
       throw new Error('@sparticuz/chromium not available in serverless environment');
     }
+    
+    // Set font configuration for serverless
+    await chromium.font('https://raw.githack.com/googlei18n/noto-emoji/master/fonts/NotoColorEmoji.ttf');
+    
     return {
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--hide-scrollbars',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-extensions'
+      ],
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath({
+        fontConfigPath: '/tmp'
+      }),
       headless: chromium.headless,
       ignoreHTTPSErrors: true
     };
