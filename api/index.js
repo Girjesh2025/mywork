@@ -27,7 +27,7 @@ const setCorsHeaders = (res) => {
 let puppeteer;
 let chrome;
 
-if (isDevelopment) {
+if (isDevelopment || !isServerless) {
   puppeteer = require('puppeteer');
 } else {
   puppeteer = require('puppeteer-core');
@@ -48,11 +48,26 @@ const getBrowserConfig = async () => {
       ]
     };
   } else {
-    return {
-      args: chrome.args,
-      executablePath: await chrome.executablePath,
-      headless: chrome.headless
-    };
+    // Check if we're in a serverless environment (Vercel/AWS Lambda)
+    if (isServerless && chrome) {
+      return {
+        args: chrome.args,
+        executablePath: await chrome.executablePath,
+        headless: chrome.headless
+      };
+    } else {
+      // Local production mode - use bundled Chromium
+      console.log('Using bundled Chromium for local production');
+      return {
+        headless: 'new',
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu'
+        ]
+      };
+    }
   }
 };
 
@@ -304,21 +319,6 @@ app.get('/api/screenshot', async (req, res) => {
   try {
     const normalizedUrl = normalizeUrl(url);
     console.log('Attempting to screenshot:', normalizedUrl);
-    
-    // Always use SVG placeholders in production or serverless environments
-    if (isProduction || isServerless) {
-      console.log('Production/Serverless environment detected, using SVG placeholder');
-      const displayUrl = normalizedUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
-      const placeholderSvg = generatePlaceholderSvg(displayUrl, width, height);
-      
-      res.set({
-        'Content-Type': 'image/svg+xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=86400',
-        'Cross-Origin-Resource-Policy': 'cross-origin'
-      });
-      
-      return res.send(placeholderSvg);
-    }
     
     const config = await getBrowserConfig();
     console.log('Browser config:', JSON.stringify(config, null, 2));
