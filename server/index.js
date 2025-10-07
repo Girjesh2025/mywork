@@ -800,7 +800,6 @@ apiRouter.post('/screenshot', async (req, res) => {
 
       const placeholderSvg = `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="#1f2937" />
         </svg>
       `;
       res.setHeader('Content-Type', 'image/svg+xml');
@@ -810,7 +809,6 @@ apiRouter.post('/screenshot', async (req, res) => {
       console.error('Error fetching HTML for fallback:', fetchError.message);
       const placeholderSvg = `
         <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-          <rect width="100%" height="100%" fill="#1f2937" />
         </svg>
       `;
       res.setHeader('Content-Type', 'image/svg+xml');
@@ -976,7 +974,6 @@ apiRouter.get('/screenshot', async (req, res) => {
     console.log('[Fallback] Using SVG placeholder');
     const domain = new URL(url).hostname;
     const svgPlaceholder = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100%" height="100%" fill="#2a2a2a"/>
     </svg>`;
 
     res.setHeader('Content-Type', 'image/svg+xml');

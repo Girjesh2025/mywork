@@ -216,10 +216,9 @@ const normalizeUrl = (url) => {
 };
 
 const generatePlaceholderSvg = (url, width, height) => {
-  // Create a simple dark SVG without any text or placeholders
+  // Return empty/transparent SVG instead of placeholder
   return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
     <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">
-      <rect width="${width}" height="${height}" fill="#2a2a2a" />
     </svg>
   `;
 };
