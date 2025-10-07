@@ -1,12 +1,5 @@
 {
   "version": 2,
-  "name": "mywork-portfolio-2025",
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  },
   "builds": [
     {
       "src": "api/index.js",
