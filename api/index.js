@@ -250,11 +250,11 @@ const generatePlaceholderSvg = (url, width, height) => {
 
 
 // API Routes
-app.get('/api/projects', (req, res) => {
+app.get('/projects', (req, res) => {
   res.json(db.projects);
 });
 
-app.post('/api/projects', (req, res) => {
+app.post('/projects', (req, res) => {
   const { name, site, status = 'Live', progress = 0, tags = ['New'] } = req.body;
   
   if (!name || !site) {
@@ -279,7 +279,7 @@ app.post('/api/projects', (req, res) => {
   res.status(201).json(newProject);
 });
 
-app.put('/api/projects/:id', (req, res) => {
+app.put('/projects/:id', (req, res) => {
   const { id } = req.params;
   const updates = req.body;
   
@@ -293,7 +293,7 @@ app.put('/api/projects/:id', (req, res) => {
   res.json(db.projects[projectIndex]);
 });
 
-app.delete('/api/projects/:id', (req, res) => {
+app.delete('/projects/:id', (req, res) => {
   const { id } = req.params;
   
   const projectIndex = db.projects.findIndex(p => p.id === parseInt(id));
@@ -306,12 +306,12 @@ app.delete('/api/projects/:id', (req, res) => {
   res.json({ message: 'Project deleted successfully' });
 });
 
-app.get('/api/tasks', (req, res) => {
+app.get('/tasks', (req, res) => {
   res.json(db.tasks);
 });
 
 // Screenshot endpoint with serverless optimization
-app.get('/api/screenshot', async (req, res) => {
+app.get('/screenshot', async (req, res) => {
   const { url, width = 480, height = 270, format = 'webp' } = req.query;
   
   // Set CORS headers for all responses
@@ -384,7 +384,7 @@ app.get('/api/screenshot', async (req, res) => {
 });
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
