@@ -1,4 +1,4 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase
 let supabase = null;
@@ -33,7 +33,7 @@ const setCorsHeaders = (res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 };
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   console.log('[API] Request received:', req.method, req.url);
   
   setCorsHeaders(res);
@@ -97,4 +97,4 @@ module.exports = async (req, res) => {
       details: error.message 
     });
   }
-};
+}
