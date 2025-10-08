@@ -12,22 +12,7 @@ export default function Dashboard({ projects, query, loading }) {
     tasksAPI.getAll().then(setTasks);
   }, []);
 
-  console.log('🏠 Dashboard: Received projects prop:', projects);
-  console.log('📊 Dashboard: Projects length:', projects?.length || 0);
-
-  if (loading) {
-    return (
-      <section className="mt-6">
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Good evening, Girjesh <span className="inline-block">👋</span></h1>
-        <p className="text-white/70 mt-1">Loading your projects...</p>
-        <div className="mt-6 p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
-          <p className="mt-4 text-white/60">Fetching projects from Supabase...</p>
-        </div>
-      </section>
-    );
-  }
-  
+  // Move all useMemo hooks to the top level before any conditional returns
   const filtered = useMemo(() => {
     if (!projects || !Array.isArray(projects)) {
       console.log('⚠️ Dashboard: Projects is not an array:', projects);
@@ -67,6 +52,22 @@ export default function Dashboard({ projects, query, loading }) {
     { name: "Planned", value: stats.byStatus["Planned"], color: "#f59e0b" },
     { name: "On Hold", value: stats.byStatus["On Hold"], color: "#f87171" },
   ];
+
+  console.log('🏠 Dashboard: Received projects prop:', projects);
+  console.log('📊 Dashboard: Projects length:', projects?.length || 0);
+
+  if (loading) {
+    return (
+      <section className="mt-6">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Good evening, Girjesh <span className="inline-block">👋</span></h1>
+        <p className="text-white/70 mt-1">Loading your projects...</p>
+        <div className="mt-6 p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-white/60">Fetching projects from Supabase...</p>
+        </div>
+      </section>
+    );
+  }
 
   const handleAddTask = async () => {
     const label = prompt("Enter task label:");
