@@ -8,7 +8,6 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "vercel-build": "vite build && cd api && npm install",
     "preview": "vite preview"
   },
   "dependencies": {
