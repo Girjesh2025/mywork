@@ -133,11 +133,11 @@ function generateDownPlaceholder(res, hostname, width, height) {
           
           // Set appropriate headers
           console.log(`Successfully got screenshot from ${service.name}`);
-            res.setHeader('Content-Type', 'image/png');
-            res.setHeader('Cache-Control', 'public, max-age=600'); // 10 minutes cache for live screenshots
-            return res.send(Buffer.from(imageBuffer));
-          }
-        } catch (serviceError) {
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'public, max-age=600'); // 10 minutes cache for live screenshots
+          return res.send(Buffer.from(imageBuffer));
+        }
+      } catch (serviceError) {
           console.error(`${service.name} failed:`, serviceError.message);
           continue; // Try next service
         }
