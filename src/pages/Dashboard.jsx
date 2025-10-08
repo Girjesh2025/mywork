@@ -3,21 +3,52 @@ import { Card, TaskLine } from '../components/ui';
 import { StatTile, DonutChart } from '../components/Charts';
 import { ProjectCard } from '../components/Project';
 import { CubeIcon, LockIcon } from '../components/Icons';
-import { getTasks, addTask } from '../utils/api';
+import { tasksAPI } from '../utils/supabase';
 
-export default function Dashboard({ projects, query }) {
+export default function Dashboard({ projects, query, loading }) {
   const [tasks, setTasks] = useState([]);
 
   useEffect(() => {
-    getTasks().then(setTasks);
+    tasksAPI.getAll().then(setTasks);
   }, []);
 
-  console.log('Dashboard received projects:', projects);
-  console.log('Projects length:', projects.length);
+  console.log('🏠 Dashboard: Received projects prop:', projects);
+  console.log('📊 Dashboard: Projects length:', projects?.length || 0);
+
+  if (loading) {
+    return (
+      <section className="mt-6">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Good evening, Girjesh <span className="inline-block">👋</span></h1>
+        <p className="text-white/70 mt-1">Loading your projects...</p>
+        <div className="mt-6 p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
+          <p className="mt-4 text-white/60">Fetching projects from Supabase...</p>
+        </div>
+      </section>
+    );
+  }
   
-  const filtered = useMemo(() => projects.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()) || p.site.toLowerCase().includes(query.toLowerCase())), [projects, query]);
+  const filtered = useMemo(() => {
+    if (!projects || !Array.isArray(projects)) {
+      console.log('⚠️ Dashboard: Projects is not an array:', projects);
+      return [];
+    }
+    
+    const result = projects.filter((p) => {
+      const nameMatch = p.name?.toLowerCase().includes(query.toLowerCase());
+      const siteMatch = p.site?.toLowerCase().includes(query.toLowerCase());
+      return nameMatch || siteMatch;
+    });
+    
+    return result;
+  }, [projects, query]);
 
   const stats = useMemo(() => {
+    if (!projects || !Array.isArray(projects)) {
+      console.log('⚠️ Dashboard: Projects is not an array for stats:', projects);
+      return { total: 0, byStatus: { Active: 0, Live: 0, Planned: 0, "On Hold": 0 } };
+    }
+    
     const total = projects.length;
     const byStatus = {
       Active: projects.filter((p) => p.status === "Active").length,
@@ -25,8 +56,8 @@ export default function Dashboard({ projects, query }) {
       Planned: projects.filter((p) => p.status === "Planned").length,
       "On Hold": projects.filter((p) => p.status === "On Hold").length,
     };
-    console.log('Dashboard stats:', { total, byStatus });
-    console.log('Live projects in stats:', projects.filter((p) => p.status === "Live"));
+    console.log('📈 Dashboard stats:', { total, byStatus });
+    console.log('🟢 Live projects in stats:', projects.filter((p) => p.status === "Live"));
     return { total, byStatus };
   }, [projects]);
 
@@ -40,7 +71,7 @@ export default function Dashboard({ projects, query }) {
   const handleAddTask = async () => {
     const label = prompt("Enter task label:");
     if (label) {
-      const newTask = await addTask({ label, done: false });
+      const newTask = await tasksAPI.create({ label, done: false });
       setTasks([...tasks, newTask]);
     }
   };
@@ -58,9 +89,18 @@ export default function Dashboard({ projects, query }) {
           </Card>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {filtered.map((p) => (
-              <ProjectCard key={p.id} p={p} />
-            ))}
+            {filtered.length === 0 ? (
+              <div className="col-span-2 p-8 text-center bg-white/5 rounded-lg">
+                <p className="text-lg">No projects found</p>
+                <p className="text-sm text-white/60 mt-2">
+                  {projects?.length === 0 ? 'No projects in database' : `No projects match "${query}"`}
+                </p>
+              </div>
+            ) : (
+              filtered.map((p) => (
+                <ProjectCard key={p.id} p={p} />
+              ))
+            )}
           </div>
         </div>
 

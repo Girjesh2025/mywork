@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { today, normalizeSite, clampNum } from '../utils/helpers';
-import { fetchProjects, addProject as addProjectAPI, deleteProject as deleteProjectAPI, updateProject } from '../utils/api';
+import { projectsAPI } from '../utils/supabase';
 import { useNotification } from '../components/Notification';
 
 export default function NextProjectPage() {
@@ -15,7 +15,7 @@ export default function NextProjectPage() {
   const { showNotification, NotificationComponent } = useNotification();
 
   useEffect(() => {
-    fetchProjects()
+    projectsAPI.getAll()
       .then(data => setProjects(data.sort((a, b) => b.id - a.id)))
       .catch(error => console.error("Failed to fetch projects:", error));
   }, []);
@@ -23,19 +23,17 @@ export default function NextProjectPage() {
   async function addProject() {
     if (!name || !site) return;
     
-    const id = Math.max(...projects.map(p => p.id), 0) + 1;
     const newProject = {
-      id,
       name,
       site,
       status,
       progress: status === 'Live' ? 100 : status === 'Active' ? 50 : 0,
       tags: tags.split(',').map(t => t.trim()).filter(t => t),
-      updatedAt: today()
+      updated_at: today()
     };
 
     try {
-      const addedProject = await addProjectAPI(newProject);
+      const addedProject = await projectsAPI.create(newProject);
       setProjects([addedProject, ...projects]);
       setName("");
       setSite("");
@@ -48,7 +46,7 @@ export default function NextProjectPage() {
 
   async function deleteProject(projectId) {
     try {
-      await deleteProjectAPI(projectId);
+      await projectsAPI.delete(projectId);
       setProjects(projects.filter(p => p.id !== projectId));
     } catch (error) {
       console.error(error);
@@ -76,15 +74,15 @@ export default function NextProjectPage() {
       ...editData, 
       site: normalizeSite(editData.site), 
       progress: clampNum(editData.progress, 0, 100), 
-      updatedAt: today() 
+      updated_at: today() 
     };
     
     console.log('Project to update:', projectToUpdate);
     
     try {
-      const updatedProject = await updateProject(editingId, projectToUpdate);
+      const updatedProject = await projectsAPI.update(editingId, projectToUpdate);
       console.log('Project updated successfully:', updatedProject);
-      setProjects(projects.map((p) => (p.id === editingId ? {...updatedProject, updatedAt: today()} : p)));
+      setProjects(projects.map((p) => (p.id === editingId ? {...updatedProject, updated_at: today()} : p)));
       setEditingId(null);
       setEditData({ id: 0, name: "", site: "", status: "Planned", progress: 0, tags: [] });
       showNotification('Project saved successfully!', 'success');

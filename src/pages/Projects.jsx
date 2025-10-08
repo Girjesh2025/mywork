@@ -3,7 +3,7 @@ import { Select, Input } from '../components/ui';
 import { ProjectCard } from '../components/Project';
 import { ProjectPreview } from '../components/ProjectPreview';
 import { normalizeSite, clampNum, today } from '../utils/helpers';
-import { updateProject, deleteProject as deleteProjectAPI, addProject } from '../utils/api';
+import { projectsAPI } from '../utils/supabase';
 import { useNotification } from '../components/Notification';
 
 export default function ProjectsPage({ projects, setProjects, query }) {
@@ -39,15 +39,15 @@ export default function ProjectsPage({ projects, setProjects, query }) {
       ...editData, 
       site: normalizeSite(editData.site), 
       progress: clampNum(editData.progress, 0, 100), 
-      updatedAt: today() 
+      updated_at: today() 
     };
     
     console.log('Project to update:', projectToUpdate);
     
     try {
-      const updatedProject = await updateProject(editingId, projectToUpdate);
+      const updatedProject = await projectsAPI.update(editingId, projectToUpdate);
       console.log('Project updated successfully:', updatedProject);
-      setProjects(projects.map((p) => (p.id === editingId ? {...updatedProject, updatedAt: today()} : p)));
+      setProjects(projects.map((p) => (p.id === editingId ? {...updatedProject, updated_at: today()} : p)));
       setEditingId(null);
       setEditData({ id: 0, name: "", site: "", status: "Planned", progress: 0, tags: [] });
       showNotification('Project saved successfully!', 'success');
@@ -63,12 +63,12 @@ export default function ProjectsPage({ projects, setProjects, query }) {
       ...createData, 
       site: normalizeSite(createData.site), 
       progress: clampNum(createData.progress, 0, 100), 
-      updatedAt: today(),
+      updated_at: today(),
       tags: createData.tags.length ? createData.tags : ["New"]
     };
     
     try {
-      const newProject = await addProject(projectToCreate);
+      const newProject = await projectsAPI.create(projectToCreate);
       setProjects([...projects, newProject]);
       setShowCreateForm(false);
       setCreateData({ name: "", site: "", status: "Planned", progress: 0, tags: [] });
@@ -79,7 +79,7 @@ export default function ProjectsPage({ projects, setProjects, query }) {
 
   async function deleteProject(projectId) {
     try {
-      await deleteProjectAPI(projectId);
+      await projectsAPI.delete(projectId);
       setProjects(projects.filter((p) => p.id !== projectId));
     } catch (error) {
       console.error(error);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MENU } from './data/seed';
 import { today } from './utils/helpers';
-import { fetchProjects, addProject as apiAddProject } from './utils/api';
+import { projectsAPI } from './utils/supabase';
 import { SearchIcon, BadgeIcon, BellIcon, DotIcon } from './components/Icons';
 import Dashboard from './pages/Dashboard';
 import ProjectsPage from './pages/Projects';
@@ -13,19 +13,26 @@ import LoginPage from './pages/LoginPage';
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [active, setActive] = useState("dashboard");
-    const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  console.log('🏗️ App.jsx: Component rendered, projects state:', projects?.length || 0, 'projects');
 
   useEffect(() => {
-    console.log('Fetching projects from API...');
-    fetchProjects()
+    console.log('🔄 App.jsx: Fetching projects from Supabase...');
+    setLoading(true);
+    projectsAPI.getAll()
       .then(data => {
-        console.log('Projects received from API:', data);
-        console.log('Live projects:', data.filter(p => p.status === 'Live'));
+        console.log('✅ App.jsx: Projects received from Supabase:', data);
+        console.log('📊 App.jsx: Total projects count:', data.length);
+        console.log('🟢 App.jsx: Live projects:', data.filter(p => p.status === 'Live'));
         setProjects(data);
+        setLoading(false);
       })
       .catch(error => {
-        console.error("Failed to fetch projects:", error);
+        console.error("❌ App.jsx: Failed to fetch projects:", error);
+        setLoading(false);
       });
   }, []);
 
@@ -34,17 +41,16 @@ export default function App() {
     const letter = String.fromCharCode(64 + ((nextId % 26) || 26));
     const name = `Project ${letter}`;
     const newProject = {
-      id: nextId,
       name,
       site: `www.${letter.toLowerCase()}.com`,
       status: "Planned",
       progress: 0,
       tags: ["New"],
-      updatedAt: today()
+      updated_at: today()
     };
 
     try {
-      const addedProject = await apiAddProject(newProject);
+      const addedProject = await projectsAPI.create(newProject);
       setProjects(prev => [...prev, addedProject]);
       setActive("projects");
     } catch (error) {
@@ -106,7 +112,7 @@ export default function App() {
           </div>
         </div>
 
-        {active === "dashboard" && <Dashboard projects={projects} query={query} />}
+        {active === "dashboard" && <Dashboard projects={projects} query={query} loading={loading} />}
         {active === "projects" && <ProjectsPage projects={projects} setProjects={setProjects} query={query} />}
         {active === "status" && <StatusPage projects={projects} />}
         {active === "next" && <NextProjectPage />}
