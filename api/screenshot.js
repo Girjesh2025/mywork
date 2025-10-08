@@ -87,14 +87,11 @@ function generateDownPlaceholder(res, hostname, width, height) {
 
     // Try multiple screenshot services for better reliability
     const screenshotServices = [
-      // Service 1: screenshotapi.net (free tier)
+      // Service 1: screenshotapi.net (free tier) - most reliable
       `https://shot.screenshotapi.net/screenshot?token=DEMO_TOKEN&url=${encodeURIComponent(targetUrl.href)}&width=${width}&height=${height}&file_type=png&wait_for_event=load`,
       
-      // Service 2: htmlcsstoimage.com (backup)
+      // Service 2: htmlcsstoimage.com (demo mode)
       `https://htmlcsstoimage.com/demo_run?url=${encodeURIComponent(targetUrl.href)}&width=${width}&height=${height}`,
-      
-      // Service 3: screenshotlayer.com (backup)
-      `http://api.screenshotlayer.com/api/capture?access_key=DEMO_KEY&url=${encodeURIComponent(targetUrl.href)}&width=${width}&height=${height}&format=PNG`
     ];
 
     // Try each service until one works
