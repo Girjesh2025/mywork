@@ -1,17 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase configuration
+console.log('[Supabase Config] Environment check:');
+console.log('[Supabase Config] import.meta.env:', import.meta.env);
+console.log('[Supabase Config] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('[Supabase Config] VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING');
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+// Fallback to hardcoded values if environment variables are not loaded
+const fallbackUrl = 'https://ibakgspltjnkirtmygkj.supabase.co';
+const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImliYWtnc3BsdGpua2lydG15Z2tqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3NzM1NjAsImV4cCI6MjA3NTM0OTU2MH0.SZj0hRlrvS3Fqv9wCdiXzTiJhNRRcX46bSFSuVS_NCk';
+
+const finalUrl = supabaseUrl || fallbackUrl;
+const finalKey = supabaseAnonKey || fallbackKey;
+
+console.log('[Supabase Config] Using URL:', finalUrl);
+console.log('[Supabase Config] Using Key:', finalKey ? 'SET' : 'MISSING');
+
+if (!finalUrl || !finalKey) {
   console.error('Missing Supabase environment variables');
-  console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
-  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Missing');
+  console.error('VITE_SUPABASE_URL:', finalUrl ? 'Set' : 'Missing');
+  console.error('VITE_SUPABASE_ANON_KEY:', finalKey ? 'Set' : 'Missing');
 }
 
 // Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(finalUrl, finalKey);
 
 // Mock data for fallback when Supabase is not available
 const mockProjects = [
@@ -71,17 +86,24 @@ const mockProjects = [
 export const projectsAPI = {
   // Fetch all projects
   async getAll() {
+    console.log('[Supabase] Starting getAll() function...');
+    
     try {
       // Check if Supabase is properly configured
-      if (!supabaseUrl || !supabaseAnonKey) {
+      if (!finalUrl || !finalKey) {
         console.log('[Supabase] Missing configuration, using mock data');
+        console.log('[Supabase] URL:', finalUrl ? 'Set' : 'Missing');
+        console.log('[Supabase] Key:', finalKey ? 'Set' : 'Missing');
         return mockProjects;
       }
 
+      console.log('[Supabase] Configuration OK, fetching from database...');
       const { data: projects, error } = await supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('[Supabase] Raw response - Data:', projects, 'Error:', error);
 
       if (error) {
         console.error('[Supabase] Error fetching projects:', error);
@@ -92,6 +114,7 @@ export const projectsAPI = {
       // Return real data from database if available
       if (projects && projects.length > 0) {
         console.log('[Supabase] Successfully loaded', projects.length, 'projects from database');
+        console.log('[Supabase] Project names:', projects.map(p => p.name));
         return projects;
       }
 
@@ -99,7 +122,7 @@ export const projectsAPI = {
       console.log('[Supabase] Database is empty, using mock data for demo');
       return mockProjects;
     } catch (error) {
-      console.error('[Projects API] Error:', error);
+      console.error('[Projects API] Unexpected error:', error);
       console.log('[Projects API] Falling back to mock data');
       return mockProjects;
     }

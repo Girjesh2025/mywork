@@ -25,13 +25,16 @@ export default function App() {
     projectsAPI.getAll()
       .then(data => {
         console.log('✅ App.jsx: Projects received from Supabase:', data);
-        console.log('📊 App.jsx: Total projects count:', data.length);
-        console.log('🟢 App.jsx: Live projects:', data.filter(p => p.status === 'Live'));
-        setProjects(data);
+        console.log('📊 App.jsx: Total projects count:', data?.length || 0);
+        console.log('🟢 App.jsx: Live projects:', data?.filter(p => p.status === 'Live') || []);
+        console.log('🔍 App.jsx: All project names:', data?.map(p => p.name) || []);
+        setProjects(data || []);
         setLoading(false);
       })
       .catch(error => {
         console.error("❌ App.jsx: Failed to fetch projects:", error);
+        console.log('🔄 App.jsx: Setting empty array as fallback');
+        setProjects([]);
         setLoading(false);
       });
   }, []);
