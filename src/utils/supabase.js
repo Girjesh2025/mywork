@@ -13,11 +13,71 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Mock data for fallback when Supabase is not available
+const mockProjects = [
+  {
+    id: 1,
+    name: "MyWork Dashboard",
+    site: "mywork-dashboard.vercel.app",
+    status: "Active",
+    progress: 75,
+    tags: ["React", "Dashboard"],
+    updated_at: "2024-10-08",
+    created_at: "2024-10-01T10:00:00Z"
+  },
+  {
+    id: 2,
+    name: "E-commerce Platform",
+    site: "shop.example.com",
+    status: "Live",
+    progress: 100,
+    tags: ["E-commerce", "React"],
+    updated_at: "2024-10-07",
+    created_at: "2024-09-15T09:00:00Z"
+  },
+  {
+    id: 3,
+    name: "Mobile App Development",
+    site: "mobileapp.dev",
+    status: "Planned",
+    progress: 25,
+    tags: ["Mobile", "React Native"],
+    updated_at: "2024-10-06",
+    created_at: "2024-09-20T14:00:00Z"
+  },
+  {
+    id: 4,
+    name: "Portfolio Website",
+    site: "portfolio.dev",
+    status: "Live",
+    progress: 100,
+    tags: ["Portfolio", "Next.js"],
+    updated_at: "2024-10-05",
+    created_at: "2024-08-10T11:00:00Z"
+  },
+  {
+    id: 5,
+    name: "Blog Platform",
+    site: "blog.example.com",
+    status: "On Hold",
+    progress: 60,
+    tags: ["Blog", "CMS"],
+    updated_at: "2024-10-04",
+    created_at: "2024-07-20T16:00:00Z"
+  }
+];
+
 // Database operations
 export const projectsAPI = {
   // Fetch all projects
   async getAll() {
     try {
+      // Check if Supabase is properly configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        console.log('[Supabase] Missing configuration, using mock data');
+        return mockProjects;
+      }
+
       const { data: projects, error } = await supabase
         .from('projects')
         .select('*')
@@ -25,13 +85,21 @@ export const projectsAPI = {
 
       if (error) {
         console.error('[Supabase] Error fetching projects:', error);
-        throw error;
+        console.log('[Supabase] Falling back to mock data');
+        return mockProjects;
       }
 
-      return projects || [];
+      // If no projects in database, return mock data
+      if (!projects || projects.length === 0) {
+        console.log('[Supabase] No projects found, using mock data');
+        return mockProjects;
+      }
+
+      return projects;
     } catch (error) {
       console.error('[Projects API] Error:', error);
-      throw error;
+      console.log('[Projects API] Falling back to mock data');
+      return mockProjects;
     }
   },
 
