@@ -89,14 +89,15 @@ export const projectsAPI = {
         return mockProjects;
       }
 
-      // Always return mock data if no projects found in database
-      // This ensures the dashboard shows content even with empty database
-      if (!projects || projects.length === 0) {
-        console.log('[Supabase] Database is empty, using mock data for demo');
-        return mockProjects;
+      // Return real data from database if available
+      if (projects && projects.length > 0) {
+        console.log('[Supabase] Successfully loaded', projects.length, 'projects from database');
+        return projects;
       }
 
-      return projects;
+      // Only use mock data if database is completely empty
+      console.log('[Supabase] Database is empty, using mock data for demo');
+      return mockProjects;
     } catch (error) {
       console.error('[Projects API] Error:', error);
       console.log('[Projects API] Falling back to mock data');
