@@ -2,7 +2,7 @@
   "name": "mywork-api",
   "version": "1.0.0",
   "description": "Serverless API for MyWork Dashboard",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.74.0"
   }
