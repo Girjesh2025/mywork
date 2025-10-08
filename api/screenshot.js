@@ -100,12 +100,15 @@ function generateDownPlaceholder(res, hostname, width, height) {
     // Try each service until one works
     for (const screenshotUrl of screenshotServices) {
       try {
+        console.log('Trying screenshot service:', screenshotUrl.substring(0, 100) + '...');
         const response = await fetch(screenshotUrl, {
           timeout: 10000, // 10 second timeout
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
           }
         });
+        
+        console.log('Response status:', response.status, 'for service:', screenshotUrl.substring(0, 50));
         
         if (response.ok) {
           const imageBuffer = await response.arrayBuffer();
@@ -117,7 +120,7 @@ function generateDownPlaceholder(res, hostname, width, height) {
           return res.send(Buffer.from(imageBuffer));
         }
       } catch (serviceError) {
-        console.log(`Screenshot service failed: ${screenshotUrl}`, serviceError.message);
+        console.error('Screenshot service failed:', serviceError.message, 'for service:', screenshotUrl.substring(0, 50));
         continue; // Try next service
       }
     }
