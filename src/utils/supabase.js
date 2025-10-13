@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 
 // Supabase configuration
 console.log('[Supabase Config] Environment check:');
-console.log('[Supabase Config] import.meta.env:', import.meta.env);
 console.log('[Supabase Config] VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
 console.log('[Supabase Config] VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? 'SET' : 'MISSING');
 
