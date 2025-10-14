@@ -5,6 +5,19 @@ import { ProjectCard } from '../components/Project';
 import { CubeIcon, LockIcon } from '../components/Icons';
 import { tasksAPI } from '../utils/supabase';
 
+// Function to get dynamic greeting based on current time
+const getDynamicGreeting = () => {
+  const hour = new Date().getHours();
+  
+  if (hour >= 5 && hour < 12) {
+    return "Good morning";
+  } else if (hour >= 12 && hour < 17) {
+    return "Good afternoon";
+  } else {
+    return "Good evening";
+  }
+};
+
 export default function Dashboard({ projects, query, loading }) {
   const [tasks, setTasks] = useState([]);
 
@@ -59,7 +72,7 @@ export default function Dashboard({ projects, query, loading }) {
   if (loading) {
     return (
       <section className="mt-6">
-        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Good evening, Girjesh <span className="inline-block">👋</span></h1>
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{getDynamicGreeting()}, Girjesh <span className="inline-block">👋</span></h1>
         <p className="text-white/70 mt-1">Loading your projects...</p>
         <div className="mt-6 p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto"></div>
@@ -79,7 +92,7 @@ export default function Dashboard({ projects, query, loading }) {
 
   return (
     <section className="mt-6">
-      <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">Good evening, Girjesh <span className="inline-block">👋</span></h1>
+      <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{getDynamicGreeting()}, Girjesh <span className="inline-block">👋</span></h1>
       <p className="text-white/70 mt-1">Here are your projects</p>
 
       <div className="grid xl:grid-cols-3 gap-6 mt-6">
