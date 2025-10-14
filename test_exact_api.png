@@ -1,0 +1,1 @@
+{"is_successful":false,"error_code":"request_not_valid","error_message":"The request is not valid","error_details":[{"message":"\"cache_ttl\" must be greater than or equal to 14400","path":["cache_ttl"],"type":"number.min","context":{"limit":14400,"value":3600,"label":"cache_ttl","key":"cache_ttl"}}]}

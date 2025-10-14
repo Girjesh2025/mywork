@@ -86,79 +86,41 @@ function generateDownPlaceholder(res, hostname, width, height) {
       return generateDownPlaceholder(res, targetUrl.hostname, width, height);
     }
 
-    // Try multiple screenshot services for better reliability
-    const screenshotServices = [
-      // Service 1: ScreenshotOne.com (PRIMARY - #1 API provider)
-      {
-        name: 'ScreenshotOne',
-        url: `https://api.screenshotone.com/take?url=${encodeURIComponent(targetUrl.href)}&viewport_width=${width}&viewport_height=${height}&format=png&block_ads=true&block_cookie_banners=true&access_key=${process.env.SCREENSHOTONE_API_KEY || 'YOUR_ACCESS_KEY'}`,
-        requiresKey: true
-      },
-      
-      // Service 2: Screenshot Machine (backup service with real API key)
-      {
-        name: 'ScreenshotMachine',
-        url: `https://api.screenshotmachine.com?key=d96ffd&url=${encodeURIComponent(targetUrl.href)}&dimension=${width}x${height}&format=png`,
-        requiresKey: false
-      },
-      
-      // Service 3: ApiFlash (demo mode backup)
-      {
-        name: 'ApiFlash',
-        url: `https://api.apiflash.com/v1/urltoimage?access_key=demo&url=${encodeURIComponent(targetUrl.href)}&width=${width}&height=${height}&format=png&fresh=true`,
-        requiresKey: false
-      },
-      
-      // Service 4: ScreenshotLayer (backup service)
-      {
-        name: 'ScreenshotLayer',
-        url: `http://api.screenshotlayer.com/api/capture?access_key=YOUR_ACCESS_KEY&url=${encodeURIComponent(targetUrl.href)}&viewport=1440x900&width=${width}&fullpage=0&format=PNG`,
-        requiresKey: false
-      },
-      
-      // Service 5: screenshotapi.net (free tier backup)
-      {
-        name: 'ScreenshotAPI',
-        url: `https://shot.screenshotapi.net/screenshot?token=DEMO_TOKEN&url=${encodeURIComponent(targetUrl.href)}&width=${width}&height=${height}&file_type=png&wait_for_event=load`,
-        requiresKey: false
-      }
-    ];
+    // Use ScreenshotOne.com as the primary and only screenshot service
+    if (!process.env.SCREENSHOTONE_API_KEY) {
+      console.log('ScreenshotOne API key not available');
+      return generatePlaceholder(res, targetUrl.hostname, width, height);
+    }
 
-    // Try each service until one works
-    for (const service of screenshotServices) {
-      // Skip services that require API keys if key is not available
-      if (service.requiresKey && !process.env.SCREENSHOTONE_API_KEY) {
-        console.log(`Skipping ${service.name} - API key not available`);
-        continue;
-      }
+    const screenshotUrl = `https://api.screenshotone.com/take?url=${encodeURIComponent(targetUrl.href)}&viewport_width=${width}&viewport_height=${height}&format=png&block_ads=true&block_cookie_banners=true&access_key=${process.env.SCREENSHOTONE_API_KEY}`;
 
-      try {
-        console.log(`Trying ${service.name}:`, service.url);
-        const response = await fetch(service.url, {
-          signal: AbortSignal.timeout(10000), // 10 second timeout using AbortSignal
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        
-        console.log(`${service.name} response status:`, response.status);
-        
-        if (response.ok) {
-          const imageBuffer = await response.arrayBuffer();
-          
-          // Set appropriate headers
-          console.log(`Successfully got screenshot from ${service.name}`);
-          res.setHeader('Content-Type', 'image/png');
-          res.setHeader('Cache-Control', 'public, max-age=600'); // 10 minutes cache for live screenshots
-          return res.send(Buffer.from(imageBuffer));
+    try {
+      console.log('Taking screenshot with ScreenshotOne:', screenshotUrl);
+      const response = await fetch(screenshotUrl, {
+        signal: AbortSignal.timeout(10000), // 10 second timeout using AbortSignal
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-      } catch (serviceError) {
-          console.error(`${service.name} failed:`, serviceError.message);
-          continue; // Try next service
-        }
+      });
+      
+      console.log('ScreenshotOne response status:', response.status);
+      
+      if (response.ok) {
+        const imageBuffer = await response.arrayBuffer();
+        
+        // Set appropriate headers
+        console.log('Successfully got screenshot from ScreenshotOne');
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=600'); // 10 minutes cache for live screenshots
+        return res.send(Buffer.from(imageBuffer));
+      } else {
+        console.error('ScreenshotOne failed with status:', response.status);
+      }
+    } catch (serviceError) {
+      console.error('ScreenshotOne failed:', serviceError.message);
     }
     
-    // If all services fail but website is live, return live placeholder
+    // If ScreenshotOne fails, return live placeholder since website is confirmed to be live
     return generatePlaceholder(res, targetUrl.hostname, width, height);
 
   } catch (error) {

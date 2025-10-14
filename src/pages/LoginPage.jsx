@@ -7,7 +7,11 @@ export default function LoginPage({ onLogin }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (username === 'admin' && password === 'india@123') {
+    // Use environment variables for credentials (fallback to defaults for localhost)
+    const adminUsername = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'india@123';
+    
+    if (username === adminUsername && password === adminPassword) {
       onLogin();
     } else {
       setError('Invalid username or password');

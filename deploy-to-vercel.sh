@@ -14,6 +14,9 @@ echo "➕ Adding modified files..."
 git add api/index.js
 git add api/package.json
 git add api/package-lock.json
+git add api/screenshot.js
+git add api/.env
+git add .env.production
 git add src/App.jsx
 git add src/pages/Dashboard.jsx
 git add src/pages/Projects.jsx
