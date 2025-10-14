@@ -265,3 +265,269 @@ export const tasksAPI = {
     }
   }
 };
+
+// Authentication API};
+
+// Visitor tracking API
+export const visitorsAPI = {
+  // Record a new visitor
+  async recordVisit(visitorData = {}) {
+    console.log('[Visitors API] Recording new visit...');
+    
+    try {
+      // Generate a session ID if not provided
+      const sessionId = visitorData.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const visitData = {
+        ip_address: visitorData.ipAddress || 'unknown',
+        user_agent: visitorData.userAgent || navigator.userAgent,
+        session_id: sessionId,
+        page_url: visitorData.pageUrl || window.location.href,
+        referrer: visitorData.referrer || document.referrer || 'direct',
+        visited_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('visitors')
+        .insert([visitData])
+        .select();
+
+      if (error) {
+        console.error('[Visitors API] Error recording visit:', error);
+        return { success: false, error };
+      }
+
+      console.log('[Visitors API] Visit recorded successfully:', data);
+      return { success: true, data: data[0] };
+    } catch (error) {
+      console.error('[Visitors API] Unexpected error recording visit:', error);
+      return { success: false, error };
+    }
+  },
+
+  // Get total visitor count
+  async getTotalVisitors() {
+    console.log('[Visitors API] Fetching total visitor count...');
+    
+    try {
+      const { count, error } = await supabase
+        .from('visitors')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) {
+        console.error('[Visitors API] Error fetching visitor count:', error);
+        return { success: false, error, count: 0 };
+      }
+
+      console.log('[Visitors API] Total visitors:', count);
+      return { success: true, count: count || 0 };
+    } catch (error) {
+      console.error('[Visitors API] Unexpected error fetching visitor count:', error);
+      return { success: false, error, count: 0 };
+    }
+  },
+
+  // Get unique visitors count
+  async getUniqueVisitors() {
+    console.log('[Visitors API] Fetching unique visitor count...');
+    
+    try {
+      const { data, error } = await supabase
+        .from('visitors')
+        .select('ip_address')
+        .not('ip_address', 'is', null);
+
+      if (error) {
+        console.error('[Visitors API] Error fetching unique visitors:', error);
+        return { success: false, error, count: 0 };
+      }
+
+      // Count unique IP addresses
+      const uniqueIPs = new Set(data.map(visitor => visitor.ip_address));
+      const uniqueCount = uniqueIPs.size;
+
+      console.log('[Visitors API] Unique visitors:', uniqueCount);
+      return { success: true, count: uniqueCount };
+    } catch (error) {
+      console.error('[Visitors API] Unexpected error fetching unique visitors:', error);
+      return { success: false, error, count: 0 };
+    }
+  },
+
+  // Get visitors for today
+  async getTodayVisitors() {
+    console.log('[Visitors API] Fetching today\'s visitor count...');
+    
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayISO = today.toISOString();
+
+      const { count, error } = await supabase
+        .from('visitors')
+        .select('*', { count: 'exact', head: true })
+        .gte('visited_at', todayISO);
+
+      if (error) {
+        console.error('[Visitors API] Error fetching today\'s visitors:', error);
+        return { success: false, error, count: 0 };
+      }
+
+      console.log('[Visitors API] Today\'s visitors:', count);
+      return { success: true, count: count || 0 };
+    } catch (error) {
+      console.error('[Visitors API] Unexpected error fetching today\'s visitors:', error);
+      return { success: false, error, count: 0 };
+    }
+  },
+
+  // Get visitor analytics
+  async getVisitorAnalytics() {
+    console.log('[Visitors API] Fetching visitor analytics...');
+    
+    try {
+      const [totalResult, uniqueResult, todayResult] = await Promise.all([
+        this.getTotalVisitors(),
+        this.getUniqueVisitors(),
+        this.getTodayVisitors()
+      ]);
+
+      return {
+        success: true,
+        analytics: {
+          total: totalResult.count,
+          unique: uniqueResult.count,
+          today: todayResult.count
+        }
+      };
+    } catch (error) {
+      console.error('[Visitors API] Error fetching analytics:', error);
+      return {
+        success: false,
+        error,
+        analytics: {
+          total: 0,
+          unique: 0,
+          today: 0
+        }
+      };
+    }
+  }
+};
+
+export const authAPI = {
+  // Verify admin credentials
+  async verifyAdmin(username, password) {
+    console.log('[Auth API] Verifying admin credentials...');
+    
+    try {
+      // Check if Supabase is properly configured
+      if (!finalUrl || !finalKey) {
+        console.log('[Auth API] Missing Supabase configuration, using fallback credentials');
+        // Fallback to environment variables or default credentials
+        const adminUsername = 'admin';
+        const adminPassword = 'Admin@india#786';
+        return username === adminUsername && password === adminPassword;
+      }
+
+      // Try to fetch admin credentials from Supabase
+      const { data: admins, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('username', username)
+        .eq('is_active', true)
+        .single();
+
+      if (error) {
+        console.log('[Auth API] Error fetching admin from database:', error.message);
+        console.log('[Auth API] Falling back to default credentials');
+        // Fallback to default credentials if table doesn't exist or other error
+        const adminUsername = 'admin';
+        const adminPassword = 'Admin@india#786';
+        return username === adminUsername && password === adminPassword;
+      }
+
+      if (admins && admins.password === password) {
+        console.log('[Auth API] Admin credentials verified from database');
+        return true;
+      }
+
+      console.log('[Auth API] Invalid credentials');
+      return false;
+    } catch (error) {
+      console.error('[Auth API] Unexpected error:', error);
+      // Fallback to default credentials on any error
+      const adminUsername = 'admin';
+      const adminPassword = 'Admin@india#786';
+      return username === adminUsername && password === adminPassword;
+    }
+  },
+
+  // Initialize admin user in database (run once)
+  async initializeAdmin() {
+    console.log('[Auth API] Initializing admin user in database...');
+    
+    try {
+      // Check if admin already exists
+      const { data: existingAdmin, error: checkError } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('username', 'admin')
+        .single();
+
+      if (existingAdmin) {
+        console.log('[Auth API] Admin user already exists');
+        return existingAdmin;
+      }
+
+      // Create admin user
+      const { data: admin, error } = await supabase
+        .from('admin_users')
+        .insert([{
+          username: 'admin',
+          password: 'Admin@india#786',
+          email: 'admin@mywork.com',
+          is_active: true,
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[Auth API] Error creating admin user:', error);
+        throw error;
+      }
+
+      console.log('[Auth API] Admin user created successfully');
+      return admin;
+    } catch (error) {
+      console.error('[Auth API] Error initializing admin:', error);
+      throw error;
+    }
+  },
+
+  // Update admin password
+  async updateAdminPassword(newPassword) {
+    try {
+      const { data: admin, error } = await supabase
+        .from('admin_users')
+        .update({ 
+          password: newPassword,
+          updated_at: new Date().toISOString()
+        })
+        .eq('username', 'admin')
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[Auth API] Error updating admin password:', error);
+        throw error;
+      }
+
+      return admin;
+    } catch (error) {
+      console.error('[Auth API] Error:', error);
+      throw error;
+    }
+  }
+};

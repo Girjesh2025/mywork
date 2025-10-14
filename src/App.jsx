@@ -11,7 +11,7 @@ import SettingsPage from './pages/Settings';
 import LoginPage from './pages/LoginPage';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Changed to false to require login
   const [active, setActive] = useState("dashboard");
   const [projects, setProjects] = useState([]);
   const [query, setQuery] = useState("");
@@ -19,7 +19,18 @@ export default function App() {
 
   console.log('🏗️ App.jsx: Component rendered, projects state:', projects?.length || 0, 'projects');
 
+  // Check for existing authentication on app load
   useEffect(() => {
+    const savedAuth = localStorage.getItem('mywork_authenticated');
+    if (savedAuth === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Only fetch projects if authenticated
+    if (!isAuthenticated) return;
+    
     console.log('🔄 App.jsx: Fetching projects from Supabase...');
     setLoading(true);
     projectsAPI.getAll()
@@ -37,7 +48,19 @@ export default function App() {
         setProjects([]);
         setLoading(false);
       });
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('mywork_authenticated', 'true');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('mywork_authenticated');
+    setProjects([]);
+    setActive("dashboard");
+  };
 
   async function handleAddProject() {
     const nextId = projects.length ? Math.max(...projects.map(p => p.id)) + 1 : 1;
@@ -62,7 +85,7 @@ export default function App() {
   }
 
   if (!isAuthenticated) {
-    return <LoginPage onLogin={() => setIsAuthenticated(true)} />;
+    return <LoginPage onLogin={handleLogin} />;
   }
 
   const totalProjects = projects.length;
@@ -75,10 +98,19 @@ export default function App() {
           <div className="w-11 h-11 rounded-full overflow-hidden ring-2 ring-purple-400/60">
             <img src="https://i.pravatar.cc/100?img=8" alt="avatar" className="w-full h-full object-cover" />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-sm opacity-70">Welcome</p>
-            <p className="font-semibold text-lg">Girjesh</p>
+            <p className="font-semibold text-lg">Admin</p>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="text-white/60 hover:text-white/90 transition-colors p-1 rounded-lg hover:bg-white/10"
+            title="Logout"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1">

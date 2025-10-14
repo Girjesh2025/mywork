@@ -4,6 +4,7 @@ import { StatTile, DonutChart } from '../components/Charts';
 import { ProjectCard } from '../components/Project';
 import { CubeIcon, LockIcon } from '../components/Icons';
 import { tasksAPI } from '../utils/supabase';
+import VisitorAnalytics from '../components/VisitorAnalytics';
 
 // Function to get dynamic greeting based on current time
 const getDynamicGreeting = () => {
@@ -16,6 +17,48 @@ const getDynamicGreeting = () => {
   } else {
     return "Good evening";
   }
+};
+
+// Digital Clock Component
+const DigitalClock = () => {
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour12: true,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  return (
+    <div className="text-right">
+      <div className="text-2xl font-mono font-bold text-white">
+        {formatTime(time)}
+      </div>
+      <div className="text-sm text-white/70 mt-1">
+        {formatDate(time)}
+      </div>
+    </div>
+  );
 };
 
 export default function Dashboard({ projects, query, loading }) {
@@ -92,8 +135,13 @@ export default function Dashboard({ projects, query, loading }) {
 
   return (
     <section className="mt-6">
-      <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{getDynamicGreeting()}, Girjesh <span className="inline-block">👋</span></h1>
-      <p className="text-white/70 mt-1">Here are your projects</p>
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">{getDynamicGreeting()}, Girjesh <span className="inline-block">👋</span></h1>
+          <p className="text-white/70 mt-1">Here are your projects</p>
+        </div>
+        <DigitalClock />
+      </div>
 
       <div className="grid xl:grid-cols-3 gap-6 mt-6">
         <div className="xl:col-span-2 space-y-6">
@@ -119,6 +167,9 @@ export default function Dashboard({ projects, query, loading }) {
         </div>
 
         <div className="space-y-6">
+          {/* Visitor Analytics */}
+          <VisitorAnalytics />
+          
           <Card>
             <h3 className="text-lg font-semibold">Distribution</h3>
             <div className="flex items-center gap-6 mt-4">
